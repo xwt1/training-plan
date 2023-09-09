@@ -1,3 +1,6 @@
 [submodule "Week2_3-Data-Structure-I/templates/cpp-skiplist-template/third_party/googletest"]
 	path = Week2_3-Data-Structure-I/templates/cpp-skiplist-template/third_party/googletest
 	url = git@github.com:google/googletest.git
+[submodule "Week5-CMU-Buffer Pool/WorkSpace/bustub"]
+	path = Week5-CMU-Buffer Pool/WorkSpace/bustub
+	url = https://github.com/cmu-db/bustub.git
