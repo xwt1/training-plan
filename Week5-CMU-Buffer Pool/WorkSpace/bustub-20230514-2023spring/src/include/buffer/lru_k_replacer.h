@@ -18,6 +18,7 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -34,6 +35,7 @@ class LRUKNode {
   void setHistory(const std::list<size_t> &history_);
   void pushFrontHistory(const size_t &value);
   void popBackHistory();
+  void clearHistory();
   void setK_(const size_t &k);
   const size_t &getK_() const;
   void setFid_(const frame_id_t &fid_);
@@ -167,6 +169,8 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  void ReplaceOldInNode_Evict_(LRUKNode temp_node_store_LRUKNode,frame_id_t frame_id);
+  
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
