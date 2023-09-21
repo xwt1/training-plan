@@ -50,8 +50,6 @@
 
 // }  // namespace bustub
 
-
-
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -77,30 +75,30 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-// TEST(PageGuardTest, SampleTest) {
-//   const std::string db_name = "test.db";
-//   const size_t buffer_pool_size = 5;
-//   const size_t k = 2;
+TEST(PageGuardTest, SampleTest) {
+  const std::string db_name = "test.db";
+  const size_t buffer_pool_size = 5;
+  const size_t k = 2;
 
-//   auto disk_manager = std::make_shared<DiskManagerUnlimitedMemory>();
-//   auto bpm = std::make_shared<BufferPoolManager>(buffer_pool_size, disk_manager.get(), k);
+  auto disk_manager = std::make_shared<DiskManagerUnlimitedMemory>();
+  auto bpm = std::make_shared<BufferPoolManager>(buffer_pool_size, disk_manager.get(), k);
 
-//   page_id_t page_id_temp;
-//   auto *page0 = bpm->NewPage(&page_id_temp);
+  page_id_t page_id_temp;
+  auto *page0 = bpm->NewPage(&page_id_temp);
 
-//   auto guarded_page = BasicPageGuard(bpm.get(), page0);
+  auto guarded_page = BasicPageGuard(bpm.get(), page0);
 
-//   EXPECT_EQ(page0->GetData(), guarded_page.GetData());
-//   EXPECT_EQ(page0->GetPageId(), guarded_page.PageId());
-//   EXPECT_EQ(1, page0->GetPinCount());
+  EXPECT_EQ(page0->GetData(), guarded_page.GetData());
+  EXPECT_EQ(page0->GetPageId(), guarded_page.PageId());
+  EXPECT_EQ(1, page0->GetPinCount());
 
-//   guarded_page.Drop();
+  guarded_page.Drop();
 
-//   EXPECT_EQ(0, page0->GetPinCount());
+  EXPECT_EQ(0, page0->GetPinCount());
 
-//   // Shutdown the disk manager and remove the temporary file we created.
-//   disk_manager->ShutDown();
-// }
+  // Shutdown the disk manager and remove the temporary file we created.
+  disk_manager->ShutDown();
+}
 
 TEST(PageGuardTest, ReadTset) {
   const std::string db_name = "test.db";
@@ -142,4 +140,4 @@ TEST(PageGuardTest, ReadTset) {
   disk_manager->ShutDown();
 }
 
-}  // namespace bustub
+};  // namespace bustub

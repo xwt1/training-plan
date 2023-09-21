@@ -14,11 +14,11 @@
 
 #include <limits>
 #include <list>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <set>
 #include <unordered_map>
 #include <vector>
-#include <memory>
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -29,7 +29,7 @@ enum class AccessType { Unknown = 0, Get, Scan };
 
 class LRUKNode {
  public:
-  explicit LRUKNode(size_t k_,frame_id_t fid_);
+  explicit LRUKNode(size_t k_, frame_id_t fid_);
 
   const std::list<size_t> &getHistory() const;
   void setHistory(const std::list<size_t> &history_);
@@ -169,8 +169,8 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
-  void ReplaceOldInNode_Evict_(LRUKNode temp_node_store_LRUKNode,frame_id_t frame_id);
-  
+  void ReplaceOldInNode_Evict_(LRUKNode temp_node_store_LRUKNode, frame_id_t frame_id);
+
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.

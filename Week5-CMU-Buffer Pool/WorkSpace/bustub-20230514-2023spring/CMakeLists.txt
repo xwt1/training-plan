@@ -4,6 +4,23 @@ set(BUILD_SHARED_LIBS OFF) # We expect external libraries to be linked staticall
 set(CMAKE_CXX_STANDARD 17) # Compile as C++17.
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # Require C++17 support.
 
+# xwt
+# 设置 C 编译器为 clang
+set(CMAKE_C_COMPILER "/usr/bin/clang")
+
+# 设置 C++ 编译器为 clang++
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++")
+
+# set(CMAKE_CXX_COMPILER_ID "Clang")
+
+# 输出当前使用的 C 编译器
+message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
+
+# 输出当前使用的 C++ 编译器
+message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
+
+
+
 project(BusTub
         VERSION 2023.1
         DESCRIPTION "The BusTub Relational Database Management System (Educational) @ https://github.com/cmu-db/bustub"

@@ -142,6 +142,8 @@ class ReadPageGuard {
     return guard_.As<T>();
   }
 
+  // auto GetGuard() -> BasicPageGuard { return  ; }
+
  private:
   // You may choose to get rid of this and add your own private variables.
   BasicPageGuard guard_;
@@ -196,6 +198,8 @@ class WritePageGuard {
   auto PageId() -> page_id_t { return guard_.PageId(); }
 
   auto GetData() -> const char * { return guard_.GetData(); }
+
+  // auto GetGuard() -> BasicPageGuard { return  guard_; }
 
   template <class T>
   auto As() -> const T * {
