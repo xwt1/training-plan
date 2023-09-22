@@ -70,7 +70,9 @@ void ReadPageGuard::Drop() {
   // this->guard_.page_= nullptr;
   // this->guard_.is_dirty_ = false;
   // this->guard_.page_->RLatch();
-  if (this->guard_.page_ != nullptr) this->guard_.page_->RUnlatch();
+  if (this->guard_.page_ != nullptr) {
+    this->guard_.page_->RUnlatch();
+  }
   this->guard_.Drop();
 }
 
@@ -86,7 +88,9 @@ auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard
 }
 
 void WritePageGuard::Drop() {
-  if (this->guard_.page_ != nullptr) this->guard_.page_->WUnlatch();
+  if (this->guard_.page_ != nullptr) {
+    this->guard_.page_->WUnlatch();
+  }
   this->guard_.Drop();
 }
 

@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <list>
 #include <memory>
@@ -25,23 +27,33 @@
 
 namespace bustub {
 
+namespace fs = std::filesystem;
+void GetTestFileContent();
+
 enum class AccessType { Unknown = 0, Get, Scan };
 
 class LRUKNode {
  public:
   explicit LRUKNode(size_t k_, frame_id_t fid_);
 
-  const std::list<size_t> &getHistory() const;
-  void setHistory(const std::list<size_t> &history_);
-  void pushFrontHistory(const size_t &value);
-  void popBackHistory();
-  void clearHistory();
-  void setK_(const size_t &k);
-  const size_t &getK_() const;
-  void setFid_(const frame_id_t &fid_);
-  const frame_id_t &getFid_() const;
-  void setIsEvictable_(const bool &is_evictable_);
-  const bool &getIsEvictable_() const;
+  // const std::list<size_t> &getHistory() const;
+  auto GetHistory() const -> const std::list<size_t> &;
+
+  void SetHistory(const std::list<size_t> &history_);
+  void PushFrontHistory(const size_t &value);
+  void PopBackHistory();
+  void ClearHistory();
+  void SetK(const size_t &k);
+
+  auto GetK() const -> const size_t &;
+
+  void SetFid(const frame_id_t &fid_);
+
+  auto GetFid() const -> const frame_id_t &;
+
+  void SetIsEvictable(const bool &is_evictable_);
+
+  auto GetIsEvictable() const -> const bool &;
 
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
@@ -55,7 +67,7 @@ class LRUKNode {
 
 class LRUKNodeCompare {
  public:
-  bool operator()(const LRUKNode &A, const LRUKNode &B) const;
+  auto operator()(const LRUKNode &A, const LRUKNode &B) const -> bool;
 };
 
 /**
@@ -169,16 +181,16 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
-  void ReplaceOldInNode_Evict_(LRUKNode temp_node_store_LRUKNode, frame_id_t frame_id);
+  void ReplaceOldInNodeEvict(const LRUKNode &temp_node_store_lruk_node, frame_id_t frame_id);
 
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode> > node_store_;
   size_t current_timestamp_{0};
-  size_t curr_size_{0};
-  size_t replacer_size_;
-  size_t k_;
+  [[maybe_unused]] size_t curr_size_{0};
+  [[maybe_unused]] size_t replacer_size_;
+  [[maybe_unused]] size_t k_;
   // std::vector<LRUKNode> node_;
   std::set<LRUKNode, LRUKNodeCompare> node_evict_;
   std::mutex latch_;

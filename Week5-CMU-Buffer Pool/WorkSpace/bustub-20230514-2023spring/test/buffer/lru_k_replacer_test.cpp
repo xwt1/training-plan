@@ -32,6 +32,9 @@ TEST(LRUKReplacerTest, ENABLED_SampleTest) {
   lru_replacer.SetEvictable(4, true);
   lru_replacer.SetEvictable(5, true);
   lru_replacer.SetEvictable(6, false);
+
+  // 1 2 3 4 5 evi
+  // 6 unevi
   ASSERT_EQ(5, lru_replacer.Size());
 
   // Scenario: Insert access history for frame 1. Now frame 1 has two access histories.

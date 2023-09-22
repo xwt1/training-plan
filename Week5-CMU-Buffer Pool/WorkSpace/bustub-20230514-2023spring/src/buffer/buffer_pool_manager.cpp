@@ -59,32 +59,32 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
     *page_id = new_page_id;
     this->latch_.unlock();
     return (this->pages_ + free_frame_id);
-  } else {
-    // 如果没有空闲块了,就需要看能不能牺牲一块
-    frame_id_t evict_frame_id = -233;
-    if (this->replacer_->Evict(&evict_frame_id)) {
-      this->latch_.lock();
-      if (this->pages_[evict_frame_id].is_dirty_) {
-        // 如果此时该页是脏页,就需要将其写回
-        this->disk_manager_->WritePage(this->pages_[evict_frame_id].page_id_, this->pages_[evict_frame_id].data_);
-        // DiskManager::WritePage(this->pages_[evict_frame_id].page_id_,this->pages_[evict_frame_id].data_);
-      }
-
-      page_id_t new_page_id = this->AllocatePage();
-
-      // this->pages_[evict_frame_id].ResetMemory();  //清零操作
-      // this->pages_[evict_frame_id].pin_count_ = 1;
-      // this->pages_[evict_frame_id].page_id_ = new_page_id;
-      // this->page_table_[new_page_id] = evict_frame_id;
-      // this->replacer_->RecordAccess(evict_frame_id); //记录访问次数+1
-      // this->replacer_->SetEvictable(evict_frame_id,false); //设置当前不能访问的状态
-      this->DealWithComingPage(evict_frame_id, new_page_id);
-      *page_id = new_page_id;
-      this->latch_.unlock();
-
-      return (this->pages_ + evict_frame_id);
-    }
   }
+  // 如果没有空闲块了,就需要看能不能牺牲一块
+  frame_id_t evict_frame_id = -233;
+  if (this->replacer_->Evict(&evict_frame_id)) {
+    this->latch_.lock();
+    if (this->pages_[evict_frame_id].is_dirty_) {
+      // 如果此时该页是脏页,就需要将其写回
+      this->disk_manager_->WritePage(this->pages_[evict_frame_id].page_id_, this->pages_[evict_frame_id].data_);
+      // DiskManager::WritePage(this->pages_[evict_frame_id].page_id_,this->pages_[evict_frame_id].data_);
+    }
+
+    page_id_t new_page_id = this->AllocatePage();
+
+    // this->pages_[evict_frame_id].ResetMemory();  //清零操作
+    // this->pages_[evict_frame_id].pin_count_ = 1;
+    // this->pages_[evict_frame_id].page_id_ = new_page_id;
+    // this->page_table_[new_page_id] = evict_frame_id;
+    // this->replacer_->RecordAccess(evict_frame_id); //记录访问次数+1
+    // this->replacer_->SetEvictable(evict_frame_id,false); //设置当前不能访问的状态
+    this->DealWithComingPage(evict_frame_id, new_page_id);
+    *page_id = new_page_id;
+    this->latch_.unlock();
+
+    return (this->pages_ + evict_frame_id);
+  }
+
   // 否则说明此时buffer pool中所有的page都是pinned状态
   return nullptr;
 }
@@ -128,53 +128,55 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
 
     this->latch_.unlock();
     return (this->pages_ + free_frame_id);
-  } else {
-    // 如果没有空闲块了,就需要看能不能牺牲一块
-    frame_id_t evict_frame_id = -233;
-    if (this->replacer_->Evict(&evict_frame_id)) {
-      this->latch_.lock();
-      if (this->pages_[evict_frame_id].is_dirty_) {
-        // 如果此时该页是脏页,就需要将其写回
-        this->disk_manager_->WritePage(this->pages_[evict_frame_id].page_id_, this->pages_[evict_frame_id].data_);
-      }
-
-      // this->pages_[evict_frame_id].ResetMemory();  //清零操作
-      // this->pages_[evict_frame_id].pin_count_ = 1;
-      // this->pages_[evict_frame_id].page_id_ = page_id;
-      // this->page_table_[page_id] = evict_frame_id;
-      // this->replacer_->RecordAccess(evict_frame_id); //记录访问次数+1
-      // this->replacer_->SetEvictable(evict_frame_id,false); //设置当前不能访问的状态
-      this->DealWithComingPage(evict_frame_id, page_id);
-
-      // 从disk中读取数据
-      this->disk_manager_->ReadPage(page_id, this->pages_[evict_frame_id].data_);
-
-      this->latch_.unlock();
-
-      return (this->pages_ + evict_frame_id);
-    }
   }
+  // 如果没有空闲块了,就需要看能不能牺牲一块
+  frame_id_t evict_frame_id = -233;
+  if (this->replacer_->Evict(&evict_frame_id)) {
+    this->latch_.lock();
+    if (this->pages_[evict_frame_id].is_dirty_) {
+      // 如果此时该页是脏页,就需要将其写回
+      this->disk_manager_->WritePage(this->pages_[evict_frame_id].page_id_, this->pages_[evict_frame_id].data_);
+    }
+
+    // this->pages_[evict_frame_id].ResetMemory();  //清零操作
+    // this->pages_[evict_frame_id].pin_count_ = 1;
+    // this->pages_[evict_frame_id].page_id_ = page_id;
+    // this->page_table_[page_id] = evict_frame_id;
+    // this->replacer_->RecordAccess(evict_frame_id); //记录访问次数+1
+    // this->replacer_->SetEvictable(evict_frame_id,false); //设置当前不能访问的状态
+    this->DealWithComingPage(evict_frame_id, page_id);
+
+    // 从disk中读取数据
+    this->disk_manager_->ReadPage(page_id, this->pages_[evict_frame_id].data_);
+
+    this->latch_.unlock();
+
+    return (this->pages_ + evict_frame_id);
+  }
+
   // 否则说明此时buffer pool中所有的page都是pinned状态
   return nullptr;
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  std::unordered_map<int, int>::iterator it = this->page_table_.find(page_id);
+  auto it = this->page_table_.find(page_id);
   if (it != this->page_table_.end()) {
     frame_id_t unpin_frame_id = it->second;
-    if (this->pages_[unpin_frame_id].pin_count_) {
+    if (this->pages_[unpin_frame_id].pin_count_ != 0) {
       this->latch_.lock();
 
       // 此时说明该frame是可以正常unpin的
       this->pages_[unpin_frame_id].pin_count_--;
-      if (!this->pages_[unpin_frame_id].pin_count_) {
+      if (this->pages_[unpin_frame_id].pin_count_ == 0) {
         // 如果此时的该frame的pin_count_的数量已经归零了,就把其设为evictable的
         this->replacer_->SetEvictable(unpin_frame_id, true);
       } else {
         // 保险起见,多这一步操作,设置为unevictable的
         this->replacer_->SetEvictable(unpin_frame_id, false);
       }
-      this->pages_[unpin_frame_id].is_dirty_ = (is_dirty) == true ? true : false;
+      // this->pages_[unpin_frame_id].is_dirty_ = (is_dirty) == true ? true : false;
+      // this->pages_[unpin_frame_id].is_dirty_ = (is_dirty) == true;
+      this->pages_[unpin_frame_id].is_dirty_ = is_dirty;
 
       this->latch_.unlock();
 
@@ -186,7 +188,7 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
 }
 
 auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
-  std::unordered_map<int, int>::iterator it = this->page_table_.find(page_id);
+  auto it = this->page_table_.find(page_id);
   if (it != this->page_table_.end()) {
     this->latch_.lock();
     frame_id_t flush_frame_id = it->second;
@@ -201,8 +203,9 @@ auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
 
 void BufferPoolManager::FlushAllPages() {
   this->latch_.lock();
-  for (auto it = this->page_table_.begin(); it != this->page_table_.end(); it++) {
-    frame_id_t flush_frame_id = it->second;
+  // for (auto it = this->page_table_.begin(); it != this->page_table_.end(); it++) {
+  for (auto &it : this->page_table_) {
+    frame_id_t flush_frame_id = it.second;
     this->disk_manager_->WritePage(this->pages_[flush_frame_id].page_id_, this->pages_[flush_frame_id].data_);
     this->pages_[flush_frame_id].is_dirty_ = false;
   }
@@ -210,10 +213,10 @@ void BufferPoolManager::FlushAllPages() {
 }
 
 auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
-  std::unordered_map<int, int>::iterator it = this->page_table_.find(page_id);
+  auto it = this->page_table_.find(page_id);
   if (it != this->page_table_.end()) {
     frame_id_t delete_frame_id = it->second;
-    if (!this->pages_[delete_frame_id].pin_count_) {
+    if (this->pages_[delete_frame_id].pin_count_ == 0) {
       this->latch_.lock();
       // 存在该页并且pin的数量为0
 
