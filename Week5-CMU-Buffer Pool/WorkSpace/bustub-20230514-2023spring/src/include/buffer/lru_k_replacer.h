@@ -12,13 +12,16 @@
 
 #pragma once
 
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <limits>
 #include <list>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -28,7 +31,6 @@
 namespace bustub {
 
 namespace fs = std::filesystem;
-void GetTestFileContent();
 
 enum class AccessType { Unknown = 0, Get, Scan };
 
@@ -36,7 +38,6 @@ class LRUKNode {
  public:
   explicit LRUKNode(size_t k_, frame_id_t fid_);
 
-  // const std::list<size_t> &getHistory() const;
   auto GetHistory() const -> const std::list<size_t> &;
 
   void SetHistory(const std::list<size_t> &history_);
@@ -51,18 +52,13 @@ class LRUKNode {
 
   auto GetFid() const -> const frame_id_t &;
 
-  void SetIsEvictable(const bool &is_evictable_);
-
-  auto GetIsEvictable() const -> const bool &;
-
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
-
   std::list<size_t> history_;
   size_t k_;
   frame_id_t fid_;
-  bool is_evictable_{false};
+  // bool is_evictable_{false};
 };
 
 class LRUKNodeCompare {
@@ -83,6 +79,7 @@ class LRUKNodeCompare {
  */
 class LRUKReplacer {
  public:
+  // friend void DebugInfo(std::string debug_func,const LRUKReplacer &lru);
   /**
    *
    * TODO(P1): Add implementation
@@ -186,6 +183,7 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
+  std::unordered_map<frame_id_t, bool> is_evictable_;
   std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode> > node_store_;
   size_t current_timestamp_{0};
   [[maybe_unused]] size_t curr_size_{0};

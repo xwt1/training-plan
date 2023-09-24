@@ -208,6 +208,6 @@ class BufferPoolManager {
   }
 
   // TODO(student): You may add additional private members and helper functions
-  void DealWithComingPage(frame_id_t free_frame_id, page_id_t page_id);
+  // void DealWithComingPage(frame_id_t free_frame_id, page_id_t page_id);
 };
 }  // namespace bustub

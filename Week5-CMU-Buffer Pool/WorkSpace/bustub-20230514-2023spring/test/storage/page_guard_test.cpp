@@ -111,9 +111,17 @@ TEST(PageGuardTest, ReadTset) {
   page_id_t page_id_temp;
   auto *page0 = bpm->NewPage(&page_id_temp);
 
+  // std::cout<<bpm->page_table_[page_id_temp]<<std::endl;
+
   // test ~ReadPageGuard()
   {
+    // std::cout<<"page_id_temp: "<<page_id_temp<<std::endl;
+    // for(auto &j :bpm->page_table_){
+    //       std::cout<<"first: "<<j.first<<std::endl;
+    //       std::cout<<"second: "<<j.second<<std::endl;
+    // }
     auto reader_guard = bpm->FetchPageRead(page_id_temp);
+    // std::cout<<(bpm->pages_ + bpm->page_table_[page_id_temp])->pin_count_<<std::endl;
     EXPECT_EQ(2, page0->GetPinCount());
   }
   EXPECT_EQ(1, page0->GetPinCount());
