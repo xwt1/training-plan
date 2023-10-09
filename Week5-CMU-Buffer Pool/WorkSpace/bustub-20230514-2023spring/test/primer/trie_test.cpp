@@ -6,6 +6,7 @@
 #include <random>
 #include <thread>  // NOLINT
 
+#include <iostream>
 #include "common/exception.h"
 #include "gtest/gtest.h"
 #include "primer/trie.h"
@@ -16,8 +17,9 @@ TEST(TrieTest, ConstructorTest) { auto trie = Trie(); }
 
 TEST(TrieTest, BasicPutTest) {
   auto trie = Trie();
-  trie = trie.Put<uint32_t>("test-int", 233);
-  trie = trie.Put<uint64_t>("test-int2", 23333333);
+  trie = trie.Put<uint32_t>("t", 233);
+  std::cout << "该t2了" << std::endl;
+  trie = trie.Put<uint64_t>("t2", 23333333);
   trie = trie.Put<std::string>("test-string", "test");
   trie = trie.Put<std::string>("", "empty-key");
 }
@@ -248,6 +250,21 @@ TEST(TrieTest, PointerStability) {
   trie = trie.Put<uint32_t>("te", 23);
   auto *ptr_after = trie.Get<std::string>("test");
   ASSERT_EQ(reinterpret_cast<uint64_t>(ptr_before), reinterpret_cast<uint64_t>(ptr_after));
+}
+
+TEST(TrieTest, MyTest) {
+  auto trie = Trie();
+  for (uint32_t i = 0; i < 23333; i++) {
+    std::string key = fmt::format("{:#05}", i);
+    std::string value = fmt::format("value-{:#08}", i);
+    trie = trie.Put<std::string>(key, value);
+  }
+  for (uint32_t i = 0; i < 23333; i++) {
+    std::string key = fmt::format("{:#05}", i);
+    std::string value = fmt::format("value-{:#08}", i);
+    // auto guard = trie.Get<std::string>(key);
+    ASSERT_EQ(*trie.Get<std::string>(key), value);
+  }
 }
 
 }  // namespace bustub

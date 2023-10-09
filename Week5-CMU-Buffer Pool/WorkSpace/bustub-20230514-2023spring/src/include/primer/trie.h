@@ -12,7 +12,11 @@
 #include <utility>
 #include <vector>
 
+#include <iostream>
+
 namespace bustub {
+
+// int debug_int=0;
 
 /// A special type that will block the move constructor and move assignment operator. Used in TrieStore tests.
 class MoveBlocked {
@@ -74,6 +78,8 @@ class TrieNode {
 template <class T>
 class TrieNodeWithValue : public TrieNode {
  public:
+  using value_type_name_ = T;
+
   // Create a trie node with no children and a value.
   explicit TrieNodeWithValue(std::shared_ptr<T> value) : value_(std::move(value)) { this->is_value_node_ = true; }
 
@@ -99,13 +105,13 @@ class TrieNodeWithValue : public TrieNode {
 // represent the new trie.
 class Trie {
  private:
-  // The root of the trie.
-  std::shared_ptr<const TrieNode> root_{nullptr};
-
   // Create a new trie with the given root.
   explicit Trie(std::shared_ptr<const TrieNode> root) : root_(std::move(root)) {}
 
  public:
+  // The root of the trie.
+  std::shared_ptr<const TrieNode> root_{nullptr};
+
   // Create an empty trie.
   Trie() = default;
 
@@ -124,6 +130,17 @@ class Trie {
   // Remove the key from the trie. If the key does not exist, return the original trie.
   // Otherwise, returns the new trie.
   auto Remove(std::string_view key) const -> Trie;
+
+  template <class T>
+  auto GetValue(const std::shared_ptr<const TrieNode> &A, std::string_view now_key_left) const
+      -> std::shared_ptr<const TrieNodeWithValue<T>>;
+
+  template <class T>
+  auto PutValue(const std::shared_ptr<const TrieNode> &A, std::string_view now_key_left, T value) const
+      -> std::shared_ptr<const TrieNode>;
+
+  auto RemoveKey(const std::shared_ptr<const TrieNode> &A, std::string_view now_key_left) const
+      -> std::pair<std::shared_ptr<const TrieNode>, bool>;
 };
 
 }  // namespace bustub

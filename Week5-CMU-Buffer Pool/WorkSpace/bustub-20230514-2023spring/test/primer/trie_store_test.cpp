@@ -54,6 +54,13 @@ TEST(TrieStoreTest, MixedTest) {
     std::string value = fmt::format("value-{:#08}", i);
     store.Put<std::string>(key, value);
   }
+  // for (uint32_t i = 0; i < 23333; i++) {
+  //   std::string key = fmt::format("{:#05}", i);
+  //   std::string value = fmt::format("value-{:#08}", i);
+  //   auto guard = store.Get<std::string>(key);
+  //   ASSERT_EQ(**guard, value);
+  // }
+
   for (uint32_t i = 0; i < 23333; i += 2) {
     std::string key = fmt::format("{:#05}", i);
     std::string value = fmt::format("new-value-{:#08}", i);

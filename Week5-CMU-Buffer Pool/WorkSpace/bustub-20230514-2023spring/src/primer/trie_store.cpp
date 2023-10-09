@@ -11,20 +11,74 @@ auto TrieStore::Get(std::string_view key) -> std::optional<ValueGuard<T>> {
   // (2) Lookup the value in the trie.
   // (3) If the value is found, return a ValueGuard object that holds a reference to the value and the
   //     root. Otherwise, return std::nullopt.
-  throw NotImplementedException("TrieStore::Get is not implemented.");
+  // throw NotImplementedException("TrieStore::Get is not implemented.");
+  // std::lock_guard<std::mutex> lock(root_lock_);
+  root_lock_.lock();
+  // 这个地方不对,应该不能移动赋值的,否则原来的this->root_会消失
+  Trie now_root = this->root_;
+  root_lock_.unlock();
+
+  const T *get_value = now_root.Get<T>(key);
+  if (get_value == nullptr) {
+    return std::nullopt;
+  }
+  ValueGuard<T> ret_v(now_root, *get_value);
+  // std::cout<<1<<std::endl;
+  return ret_v;
+
+  // std::shared_ptr<const T> get_value_ptr = std::shared_ptr<const T>(now_root.Get<T>(key));
+  // if(get_value_ptr == nullptr){
+  //   return std::nullopt;
+  // }else{
+  //   ValueGuard<T> ret_v(now_root,*get_value_ptr.get());
+  //   std::cout<<1<<std::endl;
+  //   return ret_v;
+  // }
 }
 
 template <class T>
 void TrieStore::Put(std::string_view key, T value) {
   // You will need to ensure there is only one writer at a time. Think of how you can achieve this.
   // The logic should be somehow similar to `TrieStore::Get`.
-  throw NotImplementedException("TrieStore::Put is not implemented.");
+  // throw NotImplementedException("TrieStore::Put is not implemented.");
+
+  write_lock_.lock();
+  root_lock_.lock();
+  Trie new_root = std::move(this->root_);
+  root_lock_.unlock();
+  // auto trie = std::move(new_root.Put<T>(key,std::move(value)));
+  auto trie = new_root.Put<T>(key, std::move(value));
+  root_lock_.lock();
+  this->root_ = std::move(trie);
+  root_lock_.unlock();
+  write_lock_.unlock();
+
+  // write_lock_.lock();
+  // root_lock_.lock();
+  // Trie now_root = std::move(this->root_);
+  // root_lock_.unlock();
+  // std::shared_ptr<Trie> new_root_ptr = std::make_shared<Trie>(now_root.Put<T>(key,std::move(value)));
+  // root_lock_.lock();
+  // this->root_ = *new_root_ptr.get();
+  // root_lock_.unlock();
+  // write_lock_.unlock();
 }
 
 void TrieStore::Remove(std::string_view key) {
   // You will need to ensure there is only one writer at a time. Think of how you can achieve this.
   // The logic should be somehow similar to `TrieStore::Get`.
-  throw NotImplementedException("TrieStore::Remove is not implemented.");
+  // throw NotImplementedException("TrieStore::Remove is not implemented.");
+  write_lock_.lock();
+  root_lock_.lock();
+  Trie new_root = std::move(this->root_);
+  root_lock_.unlock();
+  // auto trie = std::move(new_root.Put<T>(key,std::move(value)));
+  auto trie = new_root.Remove(key);
+  // std::shared_ptr<Trie> new_root_ptr =  std::make_shared<Trie>(new_root.Remove(key));
+  root_lock_.lock();
+  this->root_ = std::move(trie);
+  root_lock_.unlock();
+  write_lock_.unlock();
 }
 
 // Below are explicit instantiation of template functions.
