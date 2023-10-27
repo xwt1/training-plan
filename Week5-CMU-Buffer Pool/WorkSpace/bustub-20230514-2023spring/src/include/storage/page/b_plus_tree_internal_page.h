@@ -12,6 +12,7 @@
 
 #include <queue>
 #include <string>
+#include <utility>
 
 #include "storage/page/b_plus_tree_page.h"
 
@@ -73,6 +74,16 @@ class BPlusTreeInternalPage : public BPlusTreePage {
    */
   auto ValueAt(int index) const -> ValueType;
 
+  void SetValueAt(int index, const page_id_t &value);
+
+  void SetArrayAt(int index, std::pair<KeyType, page_id_t> value);
+
+  auto GetArray() const -> const MappingType *;
+
+  auto GetMinSize() const -> int;
+
+  void DeleteValue(int pos) override;
+  
   /**
    * @brief For test only, return a string representing all keys in
    * this internal page, formatted as "(key1,key2,key3,...)"

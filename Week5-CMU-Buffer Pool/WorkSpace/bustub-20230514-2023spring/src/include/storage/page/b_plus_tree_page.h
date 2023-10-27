@@ -56,11 +56,24 @@ class BPlusTreePage {
   void SetMaxSize(int max_size);
   auto GetMinSize() const -> int;
 
+  /*
+    对page进行合并
+  */
+  // virtual void MergePage(BPlusTreePage * page, std::optional<>);
+  
+  /**
+   * 删除page中在pos位置的值并进行处理
+  */
+  virtual void DeleteValue(int pos);
+
  private:
   // member variable, attributes that both internal and leaf page share
-  IndexPageType page_type_ __attribute__((__unused__));
-  int size_ __attribute__((__unused__));
-  int max_size_ __attribute__((__unused__));
+  // IndexPageType page_type_ __attribute__((__unused__));
+  // int size_ __attribute__((__unused__));
+  // int max_size_ __attribute__((__unused__));
+  IndexPageType page_type_;
+  int size_;
+  int max_size_;
 };
 
 }  // namespace bustub
