@@ -64,7 +64,7 @@ class BPlusTreePage {
   /**
    * 删除page中在pos位置的值并进行处理
   */
-  virtual void DeleteValue(int pos);
+  // virtual void DeleteAValue(int pos){}
 
  private:
   // member variable, attributes that both internal and leaf page share

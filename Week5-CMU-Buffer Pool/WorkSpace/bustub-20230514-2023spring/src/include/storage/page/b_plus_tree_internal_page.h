@@ -82,7 +82,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
 
   auto GetMinSize() const -> int;
 
-  void DeleteValue(int pos) override;
+  void DeleteAValue(int pos);
   
   /**
    * @brief For test only, return a string representing all keys in

@@ -78,12 +78,15 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
         // 这时候找一下有没有关键字就可以了
         // 这个地方不知道leafpage的数组下标是不是从0开始的。
         auto now_leaf_page_array = now_leaf_page->GetArray();
-        auto lower = std::lower_bound(now_leaf_page_array, now_leaf_page_array + now_leaf_page->GetSize(),
+        auto key_itr = std::lower_bound(now_leaf_page_array, now_leaf_page_array + now_leaf_page->GetSize(),
                                       std::make_pair(key, now_leaf_page_array[0].second), leaf_cmp_func);
-        if (this->comparator_(lower->first, key) == 0) {
-          ret_flag = true;
-          auto now_rid = lower->second;
-          result->push_back(now_rid);
+        int key_index = key_itr - now_leaf_page_array;
+        if(key_index<now_leaf_page->GetSize()){
+          if (this->comparator_(now_leaf_page_array[key_index].first, key) == 0) {
+            ret_flag = true;
+            auto now_rid = now_leaf_page_array[key_index].second;
+            result->push_back(now_rid);
+          }
         }
         // 把锁全部释放掉
         while (!ctx.read_set_.empty()) {
@@ -494,6 +497,10 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
  * delete entry from leaf page. Remember to deal with redistribute or merge if
  * necessary.
  */
+// INDEX_TEMPLATE_ARGUMENTS
+// void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn){}
+
+
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // Declaration of context instance.
@@ -528,7 +535,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       auto now_leaf_page_array = now_leaf_page->GetArray();
       // 这里的now_leaf_page_array[0].first没有意义
       auto delete_itr = std::lower_bound(now_leaf_page_array, now_leaf_page_array + now_leaf_page->GetSize(),
-                                    std::make_pair(key, now_leaf_page_array[0].first), cmp_func);
+                                    std::make_pair(key, now_leaf_page_array[0].second), cmp_func);
       int delete_index = delete_itr - now_leaf_page_array;
       if(delete_index >= now_leaf_page->GetSize()){
         // 判定delete_index超过了上限,直接退出循环
@@ -549,7 +556,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       bool is_coalesce = false;
       if(now_page_id == ctx.root_page_id_){
         // 说明要删除值的叶子结点是根节点,特殊处理一下
-        now_leaf_page->DeleteValue(delete_index);
+        now_leaf_page->DeleteAValue(delete_index);
         if(now_leaf_page->GetSize() <= 0){
           // 说明这时候为空,需要将header重新配置
           // 同时考虑要不要调用this->bpm_->DeletePage()?
@@ -558,12 +565,12 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
         }
       }else{
         // 不是根节点,正常删除值
+        now_leaf_page->DeleteAValue(delete_index);
         if(now_leaf_page->GetSize()<now_leaf_page->GetMinSize()){
           // 小于最小值,需要借值合并操作
           is_coalesce = this->BorrowOrCoalesceLeafPage(now_leaf_page,now_page_id,ctx.parent_.top());
         }else{
           // 否则直接删除就可以了
-          now_leaf_page->DeleteValue(delete_index);
         }
       }
       ctx.write_set_.pop_back();
@@ -632,6 +639,187 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // std::optional<KeyType> last_split = std::nullopt;
   // std::optional<std::pair<page_id_t, page_id_t>> left_right_id = std::nullopt;
 }
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::BorrowOrCoalesceLeafPage(LeafPage * page,page_id_t page_id,std::pair<BPlusTreePage *,int> parent) -> bool{
+  // bustub::BUSTUB_ASSERT(parent->IsLeafPage(),"父亲结点是个叶子结点"); 
+  if(parent.first->IsLeafPage()){
+    throw("有个父亲节点是叶子结点");
+  }
+  auto parent_internal_page = reinterpret_cast<InternalPage *>(parent.first);
+  // auto parent_internal_page_array = parent_internal_page->GetArray();
+  // 添加屎山代码中
+  // 将可以给予键值对的兄弟结点装入
+  bool is_left_sibing_ok = false;
+  std::vector <WritePageGuard> sibing_that_can_give_key;
+  if(parent.second > 0){
+    // auto left_page_id = parent_internal_page_array[parent.second - 1].second;
+    auto left_page_id = parent_internal_page->ValueAt(parent.second - 1);
+    WritePageGuard left_page_guard = this->bpm_->FetchPageWrite(left_page_id);
+    auto left_page = left_page_guard.AsMut<LeafPage>();
+    // 把左兄弟读出来判断一下兄弟能不能借个键值对
+    if(left_page->GetSize() > left_page->GetMinSize()){
+      sibing_that_can_give_key.push_back(std::move(left_page_guard));
+      is_left_sibing_ok = true;
+    }
+  }
+  // 右兄弟:
+  if(parent.second < parent_internal_page->GetSize() - 1 && !is_left_sibing_ok){
+    // auto right_page_id = parent_internal_page_array[parent.second + 1].second;
+    auto right_page_id = parent_internal_page->ValueAt(parent.second + 1);
+    WritePageGuard right_page_guard = this->bpm_->FetchPageWrite(right_page_id);
+    auto right_page = right_page_guard.AsMut<LeafPage>();
+    if(right_page->GetSize() > right_page->GetMinSize()){
+      sibing_that_can_give_key.push_back(std::move(right_page_guard));
+    }
+  }
+  if(sibing_that_can_give_key.empty()){
+    // 说明这时候肯定要合并
+    bool is_left_sibing_coalesce = false;
+    if((parent.second - 1)>=0){
+      is_left_sibing_coalesce = true;
+    }
+
+    auto left_right_page_id = parent_internal_page->ValueAt(is_left_sibing_coalesce?parent.second - 1:parent.second + 1);
+    WritePageGuard left__right_page_guard = this->bpm_->FetchPageWrite(left_right_page_id);
+    auto left_right_page = left__right_page_guard.AsMut<LeafPage>();
+    int siz = page->GetSize();
+    if(is_left_sibing_coalesce){
+      // 合并到左子树
+      for(int i = 0;i<siz;i++){
+        this->InsertLeafAValue(left_right_page,std::make_pair(page->KeyAt(i),page->ValueAt(i)),left_right_page->GetSize());
+      }
+    }else{
+      // 合并到右子树
+      for(int i = siz - 1;i>=0;i--){
+        this->InsertLeafAValue(left_right_page,std::make_pair(page->KeyAt(i),page->ValueAt(i)),0);
+      }
+    }
+    // 将父亲结点对应位置的值删除
+    // 这里需不需要调用this->bpm_->DeletePage()清除孩子结点占用的page?不过这里应该清除不了,得去外面清除需要考虑一下
+    // this->bpm_->DeletePage(page_id);
+    parent_internal_page->DeleteAValue(parent.second);
+    return true;
+  }
+  // 说明这时候可以借一个数
+  auto left_right_page = sibing_that_can_give_key[0].AsMut<LeafPage>();
+  if(is_left_sibing_ok){
+    // 首先覆盖父亲原先分界点的值:
+    parent_internal_page->SetKeyAt(parent.second,left_right_page->KeyAt(left_right_page->GetSize() - 1));
+    // 接下来将左兄弟的最后一个值替代父亲原先的键值,并且将key-value插入到原结点中
+    this->InsertLeafAValue(page,
+    std::make_pair(left_right_page->KeyAt(left_right_page->GetSize() - 1),left_right_page->ValueAt(left_right_page->GetSize() - 1)),
+    0);
+    left_right_page->DeleteAValue(left_right_page->GetSize() - 1);
+  }else{
+    this->InsertLeafAValue(page,
+    std::make_pair(left_right_page->KeyAt(0),left_right_page->ValueAt(0)),
+    page->GetSize());
+
+    left_right_page->DeleteAValue(0);
+
+    parent_internal_page->SetKeyAt(parent.second+1,left_right_page->KeyAt(0));
+  }
+  // 最后记得让左或右兄弟的大小减一
+
+  return false;
+  // parent_internal_page
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::BorrowOrCoalesceInternalPage(InternalPage * page, page_id_t page_id,std::pair<BPlusTreePage *,int> parent) -> bool{
+if(parent.first->IsLeafPage()){
+    throw("有个父亲节点是叶子结点");
+  }
+  auto parent_internal_page = reinterpret_cast<InternalPage *>(parent.first);
+  // auto parent_internal_page_array = parent_internal_page->GetArray();
+  // 添加屎山代码中
+  // 将可以给予键值对的兄弟结点装入
+  bool is_left_sibing_ok = false;
+  std::vector <WritePageGuard> sibing_that_can_give_key;
+  if(parent.second > 0){
+    // auto left_page_id = parent_internal_page_array[parent.second - 1].second;
+    auto left_page_id = parent_internal_page->ValueAt(parent.second - 1);
+    WritePageGuard left_page_guard = this->bpm_->FetchPageWrite(left_page_id);
+    auto left_page = left_page_guard.AsMut<InternalPage>();
+    // 把左兄弟读出来判断一下兄弟能不能借个键值对
+    if(left_page->GetSize() > left_page->GetMinSize()){
+      sibing_that_can_give_key.push_back(std::move(left_page_guard));
+      is_left_sibing_ok = true;
+    }
+  }
+  // 右兄弟:
+  if(parent.second < parent_internal_page->GetSize() - 1 && !is_left_sibing_ok){
+    // auto right_page_id = parent_internal_page_array[parent.second + 1].second;
+    auto right_page_id = parent_internal_page->ValueAt(parent.second + 1);
+    WritePageGuard right_page_guard = this->bpm_->FetchPageWrite(right_page_id);
+    auto right_page = right_page_guard.AsMut<InternalPage>();
+    if(right_page->GetSize() > right_page->GetMinSize()){
+      sibing_that_can_give_key.push_back(std::move(right_page_guard));
+    }
+  }
+  if(sibing_that_can_give_key.empty()){
+    // 说明这时候肯定要合并
+    bool is_left_sibing_coalesce = false;
+    if((parent.second - 1)>=0){
+      is_left_sibing_coalesce = true;
+    }
+    auto left_right_page_id = parent_internal_page->ValueAt(is_left_sibing_coalesce?parent.second - 1:parent.second + 1);
+    WritePageGuard left__right_page_guard = this->bpm_->FetchPageWrite(left_right_page_id);
+    auto left_right_page = left__right_page_guard.AsMut<InternalPage>();
+    int siz = page->GetSize();
+    if(is_left_sibing_coalesce){
+      // 合并到左子树
+      for(int i = 0;i<siz;i++){
+        // int pos = i;
+        if(i == 0){
+          this->InsertInternalAValue(left_right_page,std::make_pair(parent_internal_page->KeyAt(parent.second),page->ValueAt(i)),left_right_page->GetSize());
+        }else{
+          this->InsertInternalAValue(left_right_page,std::make_pair(page->KeyAt(i),page->ValueAt(i)),left_right_page->GetSize());
+        }
+      }
+    }else{
+      // 合并到右子树
+      left_right_page->SetKeyAt(0,parent_internal_page->KeyAt(parent.second+1));
+      for(int i = siz - 1;i>=0;i--){
+        this->InsertInternalAValue(left_right_page,std::make_pair(page->KeyAt(i),page->ValueAt(i)),0);
+      }
+    }
+    // 将父亲结点对应位置的值删除
+    // 这里需不需要调用this->bpm_->DeletePage()清除孩子结点占用的page?不过这里应该清除不了,得去外面清除需要考虑一下
+    // this->bpm_->DeletePage(page_id);
+    parent_internal_page->DeleteAValue(parent.second);
+    return true;
+  }
+  // 说明这时候可以借一个数
+  auto left_right_page = sibing_that_can_give_key[0].AsMut<InternalPage>();
+  if(is_left_sibing_ok){
+    // 首先将父亲的Key值传给page的首元素
+    page->SetKeyAt(0,parent_internal_page->KeyAt(parent.second));
+    // 再将左兄弟的最后一个Key值覆盖到父亲结点
+    parent_internal_page->SetKeyAt(parent.second,left_right_page->KeyAt(left_right_page->GetSize() - 1));
+    // 最后再插入
+    this->InsertInternalAValue(page,
+    std::make_pair(left_right_page->KeyAt(left_right_page->GetSize() - 1),left_right_page->ValueAt(left_right_page->GetSize() - 1)),
+    0);
+
+    left_right_page->DeleteAValue(left_right_page->GetSize() - 1);
+  }else{
+    this->InsertInternalAValue(page,
+    std::make_pair(parent_internal_page->KeyAt(parent.second+1),left_right_page->ValueAt(0)),
+    page->GetSize());
+    
+    left_right_page->DeleteAValue(0);
+
+    parent_internal_page->SetKeyAt(parent.second+1,left_right_page->KeyAt(0));
+  }
+  return false;
+}
+
+
+
+
+
 
 /*****************************************************************************
  * INDEX ITERATOR
@@ -1079,151 +1267,6 @@ void BPLUSTREE_TYPE::BuildNewPage(page_id_t *page_id, IndexPageType page_type) {
     }
   }
 }
-
-
-INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::BorrowOrCoalesceLeafPage(LeafPage * page,page_id_t page_id,std::pair<BPlusTreePage *,int> parent) -> bool{
-  // bustub::BUSTUB_ASSERT(parent->IsLeafPage(),"父亲结点是个叶子结点"); 
-  if(parent.first->IsLeafPage()){
-    throw("有个父亲节点是叶子结点");
-  }
-  auto parent_internal_page = reinterpret_cast<InternalPage *>(parent.first);
-  // auto parent_internal_page_array = parent_internal_page->GetArray();
-  // 添加屎山代码中
-  // 将可以给予键值对的兄弟结点装入
-  bool is_left_sibing_ok = false;
-  std::vector <WritePageGuard> sibing_that_can_give_key;
-  if(parent.second > 0){
-    // auto left_page_id = parent_internal_page_array[parent.second - 1].second;
-    auto left_page_id = parent_internal_page->ValueAt(parent.second - 1);
-    WritePageGuard left_page_guard = this->bpm_->FetchPageWrite(left_page_id);
-    auto left_page = left_page_guard.AsMut<LeafPage>();
-    // 把左兄弟读出来判断一下兄弟能不能借个键值对
-    if(left_page->GetSize() > left_page->GetMinSize()){
-      sibing_that_can_give_key.push_back(std::move(left_page_guard));
-      is_left_sibing_ok = true;
-    }
-  }
-  // 右兄弟:
-  if(parent.second < parent_internal_page->GetSize() - 1 && !is_left_sibing_ok){
-    // auto right_page_id = parent_internal_page_array[parent.second + 1].second;
-    auto right_page_id = parent_internal_page->ValueAt(parent.second + 1);
-    WritePageGuard right_page_guard = this->bpm_->FetchPageWrite(right_page_id);
-    auto right_page = right_page_guard.AsMut<LeafPage>();
-    if(right_page->GetSize() > right_page->GetMinSize()){
-      sibing_that_can_give_key.push_back(std::move(right_page_guard));
-    }
-  }
-  if(sibing_that_can_give_key.empty()){
-    // 说明这时候肯定要合并
-    auto left_right_page_id = parent_internal_page->ValueAt((parent.second - 1)>=0?parent.second - 1:parent.second + 1);
-    WritePageGuard left__right_page_guard = this->bpm_->FetchPageWrite(left_right_page_id);
-    auto left_right_page = left__right_page_guard.AsMut<LeafPage>();
-    int siz = page->GetSize();
-    for(int i = 0;i<siz;i++){
-      int pos = left_right_page->GetSize();
-      this->InsertLeafAValue(left_right_page,std::make_pair(page->KeyAt(i),page->ValueAt(i)),pos);
-    }
-    // 将父亲结点对应位置的值删除
-    // 这里需不需要调用this->bpm_->DeletePage()清除孩子结点占用的page?不过这里应该清除不了,得去外面清除需要考虑一下
-    // this->bpm_->DeletePage(page_id);
-    parent_internal_page->DeleteValue(parent.second);
-    return true;
-  }
-  // 说明这时候可以借一个数
-  auto left_right_page = sibing_that_can_give_key[0].AsMut<LeafPage>();
-  if(is_left_sibing_ok){
-    // 首先覆盖父亲原先分界点的值:
-    parent_internal_page->SetKeyAt(parent.second,left_right_page->KeyAt(left_right_page->GetSize() - 1));
-    // 接下来将左兄弟的最后一个值替代父亲原先的键值,并且将key-value插入到原结点中
-    this->InsertLeafAValue(page,
-    std::make_pair(left_right_page->KeyAt(left_right_page->GetSize() - 1),left_right_page->ValueAt(left_right_page->GetSize() - 1)),
-    0);
-  }else{
-    // 首先覆盖父亲原先分界点的值:
-    parent_internal_page->SetKeyAt(parent.second,left_right_page->KeyAt(0));
-    // 接下来将右兄弟的第一个值替代父亲原先的键值,并且将key-value插入到原结点中
-    this->InsertLeafAValue(page,
-    std::make_pair(left_right_page->KeyAt(0),left_right_page->ValueAt(0)),
-    0);
-  }
-  // 最后记得让左或右兄弟的大小减一
-  left_right_page->IncreaseSize(-1);
-  return false;
-  // parent_internal_page
-}
-
-INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::BorrowOrCoalesceInternalPage(InternalPage * page, page_id_t page_id,std::pair<BPlusTreePage *,int> parent) -> bool{
-if(parent.first->IsLeafPage()){
-    throw("有个父亲节点是叶子结点");
-  }
-  auto parent_internal_page = reinterpret_cast<InternalPage *>(parent.first);
-  // auto parent_internal_page_array = parent_internal_page->GetArray();
-  // 添加屎山代码中
-  // 将可以给予键值对的兄弟结点装入
-  bool is_left_sibing_ok = false;
-  std::vector <WritePageGuard> sibing_that_can_give_key;
-  if(parent.second > 0){
-    // auto left_page_id = parent_internal_page_array[parent.second - 1].second;
-    auto left_page_id = parent_internal_page->ValueAt(parent.second - 1);
-    WritePageGuard left_page_guard = this->bpm_->FetchPageWrite(left_page_id);
-    auto left_page = left_page_guard.AsMut<InternalPage>();
-    // 把左兄弟读出来判断一下兄弟能不能借个键值对
-    if(left_page->GetSize() > left_page->GetMinSize()){
-      sibing_that_can_give_key.push_back(std::move(left_page_guard));
-      is_left_sibing_ok = true;
-    }
-  }
-  // 右兄弟:
-  if(parent.second < parent_internal_page->GetSize() - 1 && !is_left_sibing_ok){
-    // auto right_page_id = parent_internal_page_array[parent.second + 1].second;
-    auto right_page_id = parent_internal_page->ValueAt(parent.second + 1);
-    WritePageGuard right_page_guard = this->bpm_->FetchPageWrite(right_page_id);
-    auto right_page = right_page_guard.AsMut<InternalPage>();
-    if(right_page->GetSize() > right_page->GetMinSize()){
-      sibing_that_can_give_key.push_back(std::move(right_page_guard));
-    }
-  }
-  if(sibing_that_can_give_key.empty()){
-    // 说明这时候肯定要合并
-    auto left_right_page_id = parent_internal_page->ValueAt((parent.second - 1)>=0?parent.second - 1:parent.second + 1);
-    WritePageGuard left__right_page_guard = this->bpm_->FetchPageWrite(left_right_page_id);
-    auto left_right_page = left__right_page_guard.AsMut<InternalPage>();
-    int siz = page->GetSize();
-    for(int i = 0;i<siz;i++){
-      int pos = left_right_page->GetSize();
-      this->InsertInternalAValue(left_right_page,std::make_pair(page->KeyAt(i),page->ValueAt(i)),pos);
-    }
-    // 将父亲结点对应位置的值删除
-    // 这里需不需要调用this->bpm_->DeletePage()清除孩子结点占用的page?不过这里应该清除不了,得去外面清除需要考虑一下
-    // this->bpm_->DeletePage(page_id);
-    parent_internal_page->DeleteValue(parent.second);
-    return true;
-  }
-  // 说明这时候可以借一个数
-  auto left_right_page = sibing_that_can_give_key[0].AsMut<InternalPage>();
-  if(is_left_sibing_ok){
-    // 首先覆盖父亲原先分界点的值:
-    parent_internal_page->SetKeyAt(parent.second,left_right_page->KeyAt(left_right_page->GetSize() - 1));
-    // 接下来将左兄弟的最后一个值替代父亲原先的键值,并且将key-value插入到原结点中
-    this->InsertInternalAValue(page,
-    std::make_pair(left_right_page->KeyAt(left_right_page->GetSize() - 1),left_right_page->ValueAt(left_right_page->GetSize() - 1)),
-    0);
-  }else{
-    // 首先覆盖父亲原先分界点的值:
-    parent_internal_page->SetKeyAt(parent.second,left_right_page->KeyAt(0));
-    // 接下来将右兄弟的第一个值替代父亲原先的键值,并且将key-value插入到原结点中
-    this->InsertInternalAValue(page,
-    std::make_pair(left_right_page->KeyAt(0),left_right_page->ValueAt(0)),
-    0);
-  }
-  // 最后记得让左或右兄弟的大小减一
-  left_right_page->IncreaseSize(-1);
-  return false;
-}
-
-
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::ToPrintableBPlusTree(page_id_t root_id) -> PrintableBPlusTree {

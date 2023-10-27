@@ -79,135 +79,137 @@ using bustub::DiskManagerUnlimitedMemory;
 //   delete bpm;
 // }
 
-TEST(MyBPlusTreeTests, ENABLED_ScaleTest) {  // NOLINT
-  // create KeyComparator and index schema
-  auto key_schema = ParseCreateStatement("a bigint");
-  GenericComparator<8> comparator(key_schema.get());
-
-  auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
-  auto *bpm = new BufferPoolManager(30, disk_manager.get());
-
-  // create and fetch header_page
-  page_id_t page_id;
-  auto *header_page = bpm->NewPage(&page_id);
-  (void)header_page;
-
-  // create b+ tree
-  // BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 3, 4);
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 2, 3);
-  GenericKey<8> index_key;
-  RID rid;
-  // create transaction
-  auto *transaction = new Transaction(0);
-
-  // int64_t scale = 5000;
-  // int64_t scale = 5000;
-  // std::vector<int64_t> keys = {1, 2, 3, 4, 5,5,5,5,6};
-  // std::vector<int64_t> keys = {1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 18, 19, 20};
-
-  std::vector<int64_t> keys = {1, 2, 3, 4, 5, 1, 2, 3, 4, 5};
-  // for (int64_t key = 1; key < scale; key++) {
-  //   keys.push_back(key);
-  // }
-
-  // // randomized the insertion order
-  // auto rng = std::default_random_engine{};
-  // std::shuffle(keys.begin(), keys.end(), rng);
-  for (auto key : keys) {
-    int64_t value = key & 0xFFFFFFFF;
-    rid.Set(static_cast<int32_t>(key >> 32), value);
-    index_key.SetFromInteger(key);
-    tree.Insert(index_key, rid, transaction);
-    std::cout << tree.DrawBPlusTree() << std::endl;
-  }
-  std::vector<RID> rids;
-  for (auto key : keys) {
-    rids.clear();
-    index_key.SetFromInteger(key);
-    tree.GetValue(index_key, &rids);
-    ASSERT_EQ(rids.size(), 1);
-
-    int64_t value = key & 0xFFFFFFFF;
-    ASSERT_EQ(rids[0].GetSlotNum(), value);
-  }
-
-  bpm->UnpinPage(HEADER_PAGE_ID, true);
-  delete transaction;
-  delete bpm;
-}
-
-// TEST(BPlusTreeTests, ScaleTest) {
+// TEST(MyBPlusTreeTests, ENABLED_ScaleTest) {  // NOLINT
 //   // create KeyComparator and index schema
 //   auto key_schema = ParseCreateStatement("a bigint");
 //   GenericComparator<8> comparator(key_schema.get());
 
 //   auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
-//   auto *bpm = new BufferPoolManager(50, disk_manager.get());
+//   auto *bpm = new BufferPoolManager(30, disk_manager.get());
+
 //   // create and fetch header_page
 //   page_id_t page_id;
-//   auto header_page = bpm->NewPage(&page_id);
+//   auto *header_page = bpm->NewPage(&page_id);
+//   (void)header_page;
 
 //   // create b+ tree
-//   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 2,
-//   3); GenericKey<8> index_key; RID rid;
+//   // BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 3, 4);
+//   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 2, 3);
+//   GenericKey<8> index_key;
+//   RID rid;
 //   // create transaction
 //   auto *transaction = new Transaction(0);
 
-//   // (wxx)  修改这里测试
-//   int size = 20;
+//   // int64_t scale = 5000;
+//   // int64_t scale = 5000;
+//   // std::vector<int64_t> keys = {1, 2, 3, 4, 5,5,5,5,6};
+//   // std::vector<int64_t> keys = {1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 18, 19, 20};
 
-//   // output to file
-//   std::ofstream output("/WorkSpace/test/b_plus.txt");
+//   std::vector<int64_t> keys = {1, 2, 3, 4, 5, 1, 2, 3, 4, 5};
+//   // for (int64_t key = 1; key < scale; key++) {
+//   //   keys.push_back(key);
+//   // }
 
-//   std::vector<int64_t> keys(size);
-
-//   std::iota(keys.begin(), keys.end(), 1);
-
-//   std::random_device rd;
-//   std::mt19937 g(rd());
-//   std::shuffle(keys.begin(), keys.end(), g);
-
+//   // // randomized the insertion order
+//   // auto rng = std::default_random_engine{};
+//   // std::shuffle(keys.begin(), keys.end(), rng);
 //   for (auto key : keys) {
-//     std::cout << key << std::endl;
-//     output << key << std::endl;
 //     int64_t value = key & 0xFFFFFFFF;
 //     rid.Set(static_cast<int32_t>(key >> 32), value);
 //     index_key.SetFromInteger(key);
 //     tree.Insert(index_key, rid, transaction);
+//     std::cout << tree.DrawBPlusTree() << std::endl;
 //   }
-
 //   std::vector<RID> rids;
-
-//   std::shuffle(keys.begin(), keys.end(), g);
-
 //   for (auto key : keys) {
 //     rids.clear();
 //     index_key.SetFromInteger(key);
 //     tree.GetValue(index_key, &rids);
-//     EXPECT_EQ(rids.size(), 1);
+//     ASSERT_EQ(rids.size(), 1);
 
 //     int64_t value = key & 0xFFFFFFFF;
-//     EXPECT_EQ(rids[0].GetSlotNum(), value);
+//     ASSERT_EQ(rids[0].GetSlotNum(), value);
 //   }
-
-//   //  std::shuffle(keys.begin(), keys.end(), g);
-
-//   for (auto key : keys) {
-//     index_key.SetFromInteger(key);
-//     tree.Remove(index_key, transaction);
-//     rids.clear();
-//     tree.GetValue(index_key, &rids);
-//     EXPECT_EQ(rids.size(), 0);
-//   }
-
-//   EXPECT_EQ(true, tree.IsEmpty());
 
 //   bpm->UnpinPage(HEADER_PAGE_ID, true);
-
 //   delete transaction;
 //   delete bpm;
-//   remove("test.db");
-//   remove("test.log");
 // }
+
+TEST(BPlusTreeTests, ScaleTest) {
+  // create KeyComparator and index schema
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
+
+  auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
+  auto *bpm = new BufferPoolManager(50, disk_manager.get());
+  // create and fetch header_page
+  page_id_t page_id;
+  auto header_page = bpm->NewPage(&page_id);
+
+  // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 2,
+  3); GenericKey<8> index_key; RID rid;
+  // create transaction
+  auto *transaction = new Transaction(0);
+
+  // (wxx)  修改这里测试
+  int size = 10000;
+
+  // output to file
+  std::ofstream output("/WorkSpace/test/b_plus.txt");
+
+  std::vector<int64_t> keys(size);
+
+  std::iota(keys.begin(), keys.end(), 1);
+
+  std::random_device rd;
+  std::mt19937 g(rd());
+  std::shuffle(keys.begin(), keys.end(), g);
+
+  for (auto key : keys) {
+    // std::cout << key << std::endl;
+    // output << key << std::endl;
+    int64_t value = key & 0xFFFFFFFF;
+    rid.Set(static_cast<int32_t>(key >> 32), value);
+    index_key.SetFromInteger(key);
+    tree.Insert(index_key, rid, transaction);
+  }
+
+  std::vector<RID> rids;
+
+  std::shuffle(keys.begin(), keys.end(), g);
+
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    tree.GetValue(index_key, &rids);
+    EXPECT_EQ(rids.size(), 1);
+
+    int64_t value = key & 0xFFFFFFFF;
+    EXPECT_EQ(rids[0].GetSlotNum(), value);
+  }
+
+  //  std::shuffle(keys.begin(), keys.end(), g);
+  // std::cout<<tree.DrawBPlusTree()<<std::endl;
+
+  for (auto key : keys) {
+    index_key.SetFromInteger(key);
+    tree.Remove(index_key, transaction);
+    rids.clear();
+    tree.GetValue(index_key, &rids);
+    EXPECT_EQ(rids.size(), 0);
+    // std::cout<<tree.DrawBPlusTree()<<std::endl;
+  }
+
+  EXPECT_EQ(true, tree.IsEmpty());
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+
+  delete transaction;
+  delete bpm;
+  remove("test.db");
+  remove("test.log");
+}
 
 }  // namespace bustub

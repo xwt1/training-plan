@@ -108,7 +108,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::GetMinSize() const -> int{
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::DeleteValue(int pos){
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::DeleteAValue(int pos) {
   for(int i = pos +1 ;i< this->GetSize();i++){
     this->SetArrayAt(i-1,std::make_pair(this->KeyAt(i),this->ValueAt(i)));
   }

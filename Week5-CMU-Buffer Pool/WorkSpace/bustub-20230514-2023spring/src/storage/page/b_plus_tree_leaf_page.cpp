@@ -42,6 +42,11 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetNextPageId() const -> page_id_t { return thi
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { this->next_page_id_ = next_page_id; }
 
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key){
+  this->array_[index].first = key;
+}
+
 /*
  * Helper method to find and return the key associated with input "index"(a.k.a
  * array offset)
@@ -65,13 +70,9 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetArrayAt(int index, MappingType value) { this
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetArray() const -> const MappingType * { return this->array_; }
 
-// INDEX_TEMPLATE_ARGUMENTS
-// auto CompareKey(const MappingType& A,const MappingType& B){
-
-// }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::DeleteValue(int pos){
+void B_PLUS_TREE_LEAF_PAGE_TYPE::DeleteAValue(int pos){
   for(int i = pos +1 ;i< this->GetSize();i++){
     this->SetArrayAt(i-1,std::make_pair(this->KeyAt(i),this->ValueAt(i)));
   }

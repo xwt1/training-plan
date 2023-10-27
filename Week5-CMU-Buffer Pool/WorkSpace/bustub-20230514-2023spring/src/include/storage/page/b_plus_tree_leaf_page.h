@@ -57,6 +57,9 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   // helper methods
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
+
+  void SetKeyAt(int index, const KeyType &key);
+
   auto KeyAt(int index) const -> KeyType;
   auto ValueAt(int index) const -> ValueType;
 
@@ -64,8 +67,8 @@ class BPlusTreeLeafPage : public BPlusTreePage {
 
   auto GetArray() const -> const MappingType *;
 
-  void DeleteValue(int pos) override;
-  // auto CompareKey(const MappingType& A,const MappingType& B);
+  void DeleteAValue(int pos);
+
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(key1,key2,key3,...)"
