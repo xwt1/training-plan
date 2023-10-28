@@ -102,15 +102,15 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetArrayAt(int index, std::pair<KeyType, pa
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::GetMinSize() const -> int{
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::GetMinSize() const -> int {
   int max_size = this->GetMaxSize();
-  return (max_size & 1) != 0?max_size/2 +1 : max_size / 2;
+  return (max_size & 1) != 0 ? max_size / 2 + 1 : max_size / 2;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::DeleteAValue(int pos) {
-  for(int i = pos +1 ;i< this->GetSize();i++){
-    this->SetArrayAt(i-1,std::make_pair(this->KeyAt(i),this->ValueAt(i)));
+  for (int i = pos + 1; i < this->GetSize(); i++) {
+    this->SetArrayAt(i - 1, std::make_pair(this->KeyAt(i), this->ValueAt(i)));
   }
   this->IncreaseSize(-1);
 }

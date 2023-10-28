@@ -58,7 +58,7 @@ class Context {
 
   // 保存当前父亲结点page的指针以及要向下搜寻的page在数组中的下标,由于BPlusTreePage删除了析构函数,
   // 可以认为在栈销毁的时候,不会调用BPlusTreePage的析构函数去销毁Page的空间
-  std::stack<std::pair<BPlusTreePage *,int>> parent_;
+  std::stack<std::pair<BPlusTreePage *, int>> parent_;
 
   auto IsRootPage(page_id_t page_id) -> bool { return page_id == root_page_id_; }
 };
@@ -123,10 +123,6 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *txn = nullptr);
 
-  int insert_num_{0};
-
-  int read_num_{0};
-
  private:
   /* Debug Routines for FREE!! */
   void ToGraph(page_id_t page_id, const BPlusTreePage *page, std::ofstream &out);
@@ -135,8 +131,8 @@ class BPlusTree {
 
   /**
    * 插入
-   * 
-  */
+   *
+   */
 
   /*
     插入一个value值在pos位置上，数组从原先的pos开始向右移动一格
@@ -172,26 +168,27 @@ class BPlusTree {
   */
   void BuildNewPage(page_id_t *page_id, IndexPageType page_type);
 
-
   /**
    * 删除
-   * 
-  */
-  
+   *
+   */
+
   /**
    * 尝试能不能借用一个兄弟叶子结点的值
    * page和page_id是要处理的叶子结点和叶子结点的编号，parent.first是父节点，parent.second是要处理的叶子结点的编号在父节点数组中的下标
    * 返回值表示有没有发生合并,true代表发生了合并,false代表没有
-  */
-  auto BorrowOrCoalesceLeafPage(LeafPage * page,page_id_t page_id,std::pair<BPlusTreePage *,int> parent) -> bool;
+   */
+  auto BorrowOrCoalesceLeafPage(LeafPage *page, page_id_t page_id, std::pair<BPlusTreePage *, int> parent) -> bool;
 
   /**
    * 尝试能不能借用一个兄弟内部结点的值
    * page和page_id是要处理的内部结点和内部结点的编号，parent.first是父节点，parent.second是要处理的内部结点的编号在父节点数组中的下标
    * 返回值表示有没有发生合并,true代表发生了合并,false代表没有
-  */
-  auto BorrowOrCoalesceInternalPage(InternalPage * page, page_id_t page_id,std::pair<BPlusTreePage *,int> parent) -> bool;
+   */
+  auto BorrowOrCoalesceInternalPage(InternalPage *page, page_id_t page_id, std::pair<BPlusTreePage *, int> parent)
+      -> bool;
 
+  // auto DeleteBegin(page_id_t root_page_id_)-> INDEXITERATOR_TYPE;
   // void DeleteAValueFrom
 
   /**

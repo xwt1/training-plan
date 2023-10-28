@@ -62,6 +62,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
 
   auto KeyAt(int index) const -> KeyType;
   auto ValueAt(int index) const -> ValueType;
+  auto KeyValueAt(int index) const -> const MappingType &;
 
   void SetArrayAt(int index, MappingType value);
 

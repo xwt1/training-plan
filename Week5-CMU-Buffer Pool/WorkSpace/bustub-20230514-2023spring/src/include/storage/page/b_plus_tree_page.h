@@ -60,10 +60,10 @@ class BPlusTreePage {
     对page进行合并
   */
   // virtual void MergePage(BPlusTreePage * page, std::optional<>);
-  
+
   /**
    * 删除page中在pos位置的值并进行处理
-  */
+   */
   // virtual void DeleteAValue(int pos){}
 
  private:

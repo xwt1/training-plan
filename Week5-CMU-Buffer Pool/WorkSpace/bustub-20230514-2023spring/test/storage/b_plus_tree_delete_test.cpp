@@ -171,7 +171,7 @@ TEST(BPlusTreeTests, ENABLED_DeleteTest3) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator,2,3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -196,13 +196,13 @@ TEST(BPlusTreeTests, ENABLED_DeleteTest3) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  std::cout<<tree.DrawBPlusTree()<<std::endl;
+  std::cout << tree.DrawBPlusTree() << std::endl;
 
   std::vector<int64_t> remove_keys = {1, 5};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
-    std::cout<<tree.DrawBPlusTree()<<std::endl;
+    std::cout << tree.DrawBPlusTree() << std::endl;
   }
 
   int64_t size = 0;
@@ -229,7 +229,5 @@ TEST(BPlusTreeTests, ENABLED_DeleteTest3) {
   delete transaction;
   delete bpm;
 }
-
-
 
 }  // namespace bustub

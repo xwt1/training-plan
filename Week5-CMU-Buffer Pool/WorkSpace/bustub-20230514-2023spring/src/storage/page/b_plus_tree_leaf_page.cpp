@@ -43,9 +43,7 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { this->next_page_id_ = next_page_id; }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key){
-  this->array_[index].first = key;
-}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { this->array_[index].first = key; }
 
 /*
  * Helper method to find and return the key associated with input "index"(a.k.a
@@ -65,16 +63,18 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyValueAt(int index) const -> const MappingType & { return this->array_[index]; }
+
+INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::SetArrayAt(int index, MappingType value) { this->array_[index] = value; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetArray() const -> const MappingType * { return this->array_; }
 
-
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::DeleteAValue(int pos){
-  for(int i = pos +1 ;i< this->GetSize();i++){
-    this->SetArrayAt(i-1,std::make_pair(this->KeyAt(i),this->ValueAt(i)));
+void B_PLUS_TREE_LEAF_PAGE_TYPE::DeleteAValue(int pos) {
+  for (int i = pos + 1; i < this->GetSize(); i++) {
+    this->SetArrayAt(i - 1, std::make_pair(this->KeyAt(i), this->ValueAt(i)));
   }
   this->IncreaseSize(-1);
 }
