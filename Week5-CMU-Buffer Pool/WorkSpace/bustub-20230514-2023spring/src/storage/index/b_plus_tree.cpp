@@ -22,7 +22,7 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
   auto root_page = guard.AsMut<BPlusTreeHeaderPage>();
   root_page->root_page_id_ = INVALID_PAGE_ID;
 
-  std::cout << leaf_max_size << " " << internal_max_size << std::endl;
+  // std::cout << leaf_max_size << " " << internal_max_size << std::endl;
 }
 
 /*
@@ -33,8 +33,9 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
   // 两个写法一致，为什么？
   // auto guard = this->bpm_->FetchPageRead(this->header_page_id_);
   // auto root_page = guard.template As<BPlusTreeHeaderPage>();
-  WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-  auto root_page = guard.AsMut<BPlusTreeHeaderPage>();
+  ReadPageGuard guard = bpm_->FetchPageRead(header_page_id_);
+  // WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
+  auto root_page = guard.As<BPlusTreeHeaderPage>();
   return root_page->root_page_id_ == INVALID_PAGE_ID;
   // return true;
 }
@@ -53,6 +54,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     ReadPageGuard header_guard = this->bpm_->FetchPageRead(this->header_page_id_);
     auto header_page = header_guard.As<BPlusTreeHeaderPage>();
     ReadPageGuard root_page_guard = this->bpm_->FetchPageRead(header_page->root_page_id_);
+    header_guard.Drop();
     Context ctx;
     ctx.read_set_.push_back(std::move(root_page_guard));
     // 自此,拿到了root page(结点),将其存储在read_set_中
@@ -64,6 +66,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
                                  const std::pair<KeyType, page_id_t> &b) -> bool {
       return static_cast<bool>(this->comparator_(a.first, b.first) == -1);
     };
+
     while (!ctx.read_set_.empty()) {
       auto now_page = ctx.read_set_.back().As<BPlusTreePage>();
       if (now_page->IsLeafPage()) {
@@ -82,10 +85,10 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
           }
         }
         // 把锁全部释放掉
-        while (!ctx.read_set_.empty()) {
-          ctx.read_set_.pop_back();
-        }
         header_guard.Drop();
+        while (!ctx.read_set_.empty()) {
+          ctx.read_set_.pop_front();
+        }
         continue;
       }
       auto now_internal_page = reinterpret_cast<const InternalPage *>(now_page);
@@ -98,6 +101,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
       int key_index = key_pos - now_internal_page_array;
       ReadPageGuard son_page_guard = this->bpm_->FetchPageRead(now_internal_page_array[key_index].second);
       ctx.read_set_.push_back(std::move(son_page_guard));
+      ctx.read_set_.pop_front();
     }
     return ret_flag;
   }
@@ -151,6 +155,10 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
       if (this->comparator_(lower->first, key) == 0) {
         // 说明有重复的键值,返回false;
         ret_flag = false;
+        (*ctx.header_page_).Drop();
+        while (!ctx.write_set_.empty()) {
+          ctx.write_set_.pop_front();
+        }
         break;
       }
       ret_flag = true;
@@ -204,8 +212,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
       }
       // 如果此时已经没有需要上传的,就把写锁全部释放掉
       if (last_split == std::nullopt && left_right_id == std::nullopt) {
+        (*ctx.header_page_).Drop();
         while (!ctx.write_set_.empty()) {
-          ctx.write_set_.pop_back();
+          ctx.write_set_.pop_front();
         }
         continue;
       }
@@ -251,6 +260,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
               new_root_page->SetSize(2);
               // 更新header
               header_page->root_page_id_ = new_root_id;
+              last_split = std::nullopt;
+              left_right_id = std::nullopt;
             }
           } else {
             // 否则直接插入
@@ -262,8 +273,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
         } else {
           // 如果此时已经没有需要上传的,就把写锁全部释放掉
           if (last_split == std::nullopt && left_right_id == std::nullopt) {
+            (*ctx.header_page_).Drop();
             while (!ctx.write_set_.empty()) {
-              ctx.write_set_.pop_back();
+              ctx.write_set_.pop_front();
             }
             continue;
           }
@@ -282,8 +294,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
       }
     }
   }
+  (*ctx.header_page_).Drop();
   while (!ctx.write_set_.empty()) {
-    ctx.write_set_.pop_back();
+    ctx.write_set_.pop_front();
   }
   return ret_flag;
 }
@@ -336,15 +349,17 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       int delete_index = delete_itr - now_leaf_page_array;
       if (delete_index >= now_leaf_page->GetSize()) {
         // 判定delete_index超过了上限,直接退出循环
+        (*ctx.header_page_).Drop();
         while (!ctx.write_set_.empty()) {
-          ctx.write_set_.pop_back();
+          ctx.write_set_.pop_front();
         }
         continue;
       }
       if (this->comparator_(key, delete_itr->first) == -1) {
         // 说明找到的值比key大,直接退出循环
+        (*ctx.header_page_).Drop();
         while (!ctx.write_set_.empty()) {
-          ctx.write_set_.pop_back();
+          ctx.write_set_.pop_front();
         }
         continue;
       }
@@ -372,8 +387,9 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
       }
       if (!is_coalesce) {
         // 这时候说明没有合并操作使得父亲结点发生变化，可以提前把锁放掉了
+        (*ctx.header_page_).Drop();
         while (!ctx.write_set_.empty()) {
-          ctx.write_set_.pop_back();
+          ctx.write_set_.pop_front();
         }
         continue;
       }
@@ -407,8 +423,9 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
           this->bpm_->DeletePage(now_page_id);
         } else {
           // 这时候说明没有合并操作使得父亲结点发生变化，可以提前把锁放掉了
+          (*ctx.header_page_).Drop();
           while (!ctx.write_set_.empty()) {
-            ctx.write_set_.pop_back();
+            ctx.write_set_.pop_front();
           }
           // header_guard.Drop();
           continue;
@@ -632,6 +649,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
   }
   page_id_t page_id = root_page->root_page_id_;
   ReadPageGuard now_page_guard = bpm_->FetchPageRead(page_id);
+  root_page_guard.Drop();
   auto *now_page = now_page_guard.As<BPlusTreePage>();
   while (!now_page->IsLeafPage()) {
     auto *now_internal_page = reinterpret_cast<const InternalPage *>(now_page);
@@ -639,7 +657,8 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
     now_page_guard = bpm_->FetchPageRead(page_id);
     now_page = now_page_guard.As<BPlusTreePage>();
   }
-  return INDEXITERATOR_TYPE(bpm_, std::move(now_page_guard), std::move(root_page_guard), 0);
+  // return INDEXITERATOR_TYPE(bpm_, std::move(now_page_guard), std::move(root_page_guard), 0);
+  return INDEXITERATOR_TYPE(bpm_, std::move(now_page_guard), 0);
 }
 
 /*
@@ -663,8 +682,8 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   }
   page_id_t page_id = root_page->root_page_id_;
   ReadPageGuard now_page_guard = bpm_->FetchPageRead(page_id);
+  root_guard.Drop();
   auto now_page = now_page_guard.As<BPlusTreePage>();
-
   while (!now_page->IsLeafPage()) {
     auto now_internal_page = now_page_guard.As<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>>();
 
@@ -687,7 +706,8 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
     return End();
   }
   if (this->comparator_(now_leaf_page_array[key_index].first, key) == 0) {
-    return INDEXITERATOR_TYPE(bpm_, std::move(now_page_guard), std::move(root_guard), key_index);
+    // return INDEXITERATOR_TYPE(bpm_, std::move(now_page_guard), std::move(root_guard), key_index);
+    return INDEXITERATOR_TYPE(bpm_, std::move(now_page_guard), key_index);
   }
   return End();
 }
@@ -699,7 +719,8 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  return INDEXITERATOR_TYPE(nullptr, {nullptr, nullptr}, {nullptr, nullptr}, -233);
+  // return INDEXITERATOR_TYPE(nullptr, {nullptr, nullptr}, {nullptr, nullptr}, -233);
+  return INDEXITERATOR_TYPE(nullptr, {nullptr, nullptr}, -233);
 }
 
 /**

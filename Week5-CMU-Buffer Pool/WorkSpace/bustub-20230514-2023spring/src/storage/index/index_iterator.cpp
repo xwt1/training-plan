@@ -11,10 +11,20 @@ namespace bustub {
  * NOTE: you can change the destructor/constructor method here
  * set your own input parameters
  */
+// INDEX_TEMPLATE_ARGUMENTS
+// INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, ReadPageGuard &&head_guard_,
+//                                   int index)
+//     : bpm_(bpm), page_guard_(std::move(page_guard_)), head_guard_(std::move(head_guard_)), index_(index) {
+//   if (bpm_ != nullptr && index != -233) {
+//     this->page_id_ = this->page_guard_.PageId();
+//   } else {
+//     this->page_id_ = INVALID_PAGE_ID;
+//   }
+// }
+
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, ReadPageGuard &&head_guard_,
-                                  int index)
-    : bpm_(bpm), page_guard_(std::move(page_guard_)), head_guard_(std::move(head_guard_)), index_(index) {
+INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, int index)
+    : bpm_(bpm), page_guard_(std::move(page_guard_)), index_(index) {
   if (bpm_ != nullptr && index != -233) {
     this->page_id_ = this->page_guard_.PageId();
   } else {
@@ -44,7 +54,7 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
         bpm_ = nullptr;
         this->index_ = -233;
         this->page_guard_.Drop();
-        this->head_guard_.Drop();
+        // this->head_guard_.Drop();
         this->page_id_ = INVALID_PAGE_ID;
         return *this;
       }

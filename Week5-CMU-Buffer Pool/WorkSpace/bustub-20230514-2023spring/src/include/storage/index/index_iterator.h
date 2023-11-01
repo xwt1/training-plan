@@ -23,7 +23,9 @@ INDEX_TEMPLATE_ARGUMENTS
 class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
-  IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, ReadPageGuard &&head_guard_, int index = -233);
+  // IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, ReadPageGuard &&head_guard_, int index = -233);
+  IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, int index = -233);
+
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;
@@ -53,7 +55,7 @@ class IndexIterator {
   // add your own private member variables here
   BufferPoolManager *bpm_;
   ReadPageGuard page_guard_;
-  ReadPageGuard head_guard_;
+  // ReadPageGuard head_guard_;
   int index_;
   // 当前的page_id,当为End时会体现出作用
   page_id_t page_id_;
