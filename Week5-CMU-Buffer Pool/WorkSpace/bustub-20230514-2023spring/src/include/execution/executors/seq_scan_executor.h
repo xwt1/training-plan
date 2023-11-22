@@ -33,6 +33,8 @@ class SeqScanExecutor : public AbstractExecutor {
    */
   SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan);
 
+  ~SeqScanExecutor() override;
+
   /** Initialize the sequential scan */
   void Init() override;
 
@@ -50,5 +52,8 @@ class SeqScanExecutor : public AbstractExecutor {
  private:
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
+  /* 存储table的源信息,在init的时候存储下来,方便Next使用 */
+  // TableHeap * table_;  // table本身
+  TableIterator *it_;
 };
 }  // namespace bustub

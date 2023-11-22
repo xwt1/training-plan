@@ -152,14 +152,17 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
       auto now_leaf_page_array = now_leaf_page->GetArray();
       auto lower = std::lower_bound(now_leaf_page_array, now_leaf_page_array + now_leaf_page->GetSize(),
                                     std::make_pair(key, value), cmp_func);
-      if (this->comparator_(lower->first, key) == 0) {
-        // 说明有重复的键值,返回false;
-        ret_flag = false;
-        (*ctx.header_page_).Drop();
-        while (!ctx.write_set_.empty()) {
-          ctx.write_set_.pop_front();
+      if(lower - now_leaf_page_array < now_leaf_page->GetSize()){
+        // 保证找到的位置是有效的
+        if (this->comparator_(lower->first, key) == 0) {
+          // 说明有重复的键值,返回false;
+          ret_flag = false;
+          (*ctx.header_page_).Drop();
+          while (!ctx.write_set_.empty()) {
+            ctx.write_set_.pop_front();
+          }
+          break;
         }
-        break;
       }
       ret_flag = true;
       int right_node_index_num = lower - now_leaf_page_array;

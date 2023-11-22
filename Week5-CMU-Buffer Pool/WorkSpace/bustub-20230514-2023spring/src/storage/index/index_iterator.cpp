@@ -33,6 +33,16 @@ INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_g
 }
 
 INDEX_TEMPLATE_ARGUMENTS
+auto INDEXITERATOR_TYPE::operator=(IndexIterator &&that) noexcept -> IndexIterator &{
+  this->bpm_ = that.bpm_;
+  that.bpm_ = nullptr;
+  this->page_guard_ = std::move(that.page_guard_);
+  this->index_ = that.index_;
+  this->page_id_ = that.page_id_;
+  return *this;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS

@@ -26,6 +26,8 @@ class IndexIterator {
   // IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, ReadPageGuard &&head_guard_, int index = -233);
   IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_guard_, int index = -233);
 
+  auto operator=(IndexIterator &&that) noexcept -> IndexIterator&;
+
   ~IndexIterator();  // NOLINT
 
   auto IsEnd() -> bool;

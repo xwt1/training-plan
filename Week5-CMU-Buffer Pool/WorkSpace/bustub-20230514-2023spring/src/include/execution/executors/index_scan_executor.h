@@ -44,5 +44,13 @@ class IndexScanExecutor : public AbstractExecutor {
  private:
   /** The index scan plan node to be executed. */
   const IndexScanPlanNode *plan_;
+  /** 遍历索引信息*/
+  const IndexInfo *index_info_;
+  /** Metadata identifying the table that should be updated */
+  const TableInfo *table_info_;
+  /** 迭代器*/
+  bustub::BPlusTreeIndexIteratorForTwoIntegerColumn iter_;
+  /** 是否将子执行算子的每个tuple更新完*/
+  // bool has_out_{false};
 };
 }  // namespace bustub
