@@ -17,10 +17,7 @@ class ValueGuard {
   auto operator*() const -> const T & { return value_; }
 
  private:
-  // 即使Trie没有书写移动构造函数,系统会默认生成一个移动构造函数,
-  // 这个默认的移动构造函数会按成员变量的顺序逐一调用它们的移动构造函数或复制构造函数（如果没有移动构造函数）
   Trie root_;
-  // 注意看这里是引用,所以使用value_(value)不是拷贝构造而只是创建一个副本,不会触发防止拷贝构造的部分。
   const T &value_;
 };
 

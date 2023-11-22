@@ -16,7 +16,7 @@
 
 namespace bustub {
 
-TEST(LRUKReplacerTest, ENABLED_SampleTest) {
+TEST(LRUKReplacerTest, DISABLED_SampleTest) {
   LRUKReplacer lru_replacer(7, 2);
 
   // Scenario: add six elements to the replacer. We have [1,2,3,4,5]. Frame 6 is non-evictable.
@@ -26,23 +26,12 @@ TEST(LRUKReplacerTest, ENABLED_SampleTest) {
   lru_replacer.RecordAccess(4);
   lru_replacer.RecordAccess(5);
   lru_replacer.RecordAccess(6);
-  // std::cout<<lru_replacer.Size()<<std::endl;
   lru_replacer.SetEvictable(1, true);
-  // std::cout<<std::endl;
-  // std::cout<<lru_replacer.Size()<<std::endl;
-  // std::cout<<lru_replacer.node_evict_.begin()->GetFid()<<std::endl;
-  // std::cout<<lru_replacer.node_store_[2]->is_evictable_<<std::endl;
-  // std::cout<<std::endl;
   lru_replacer.SetEvictable(2, true);
-  // std::cout<<lru_replacer.Size()<<std::endl;
   lru_replacer.SetEvictable(3, true);
-  // std::cout<<lru_replacer.Size()<<std::endl;
   lru_replacer.SetEvictable(4, true);
   lru_replacer.SetEvictable(5, true);
   lru_replacer.SetEvictable(6, false);
-  // std::cout<<lru_replacer.Size()<<std::endl;
-  // 1 2 3 4 5 evi
-  // 6 unevi
   ASSERT_EQ(5, lru_replacer.Size());
 
   // Scenario: Insert access history for frame 1. Now frame 1 has two access histories.
@@ -60,9 +49,6 @@ TEST(LRUKReplacerTest, ENABLED_SampleTest) {
   ASSERT_EQ(4, value);
   ASSERT_EQ(2, lru_replacer.Size());
 
-  std::cout << lru_replacer.is_evictable_[2] << std::endl;
-  std::cout << lru_replacer.is_evictable_[3] << std::endl;
-  std::cout << lru_replacer.is_evictable_[4] << std::endl;
   // Scenario: Now replacer has frames [5,1].
   // Insert new frames 3, 4, and update access history for 5. We should end with [3,1,5,4]
   lru_replacer.RecordAccess(3);
@@ -71,7 +57,6 @@ TEST(LRUKReplacerTest, ENABLED_SampleTest) {
   lru_replacer.RecordAccess(4);
   lru_replacer.SetEvictable(3, true);
   lru_replacer.SetEvictable(4, true);
-
   ASSERT_EQ(4, lru_replacer.Size());
 
   // Scenario: continue looking for victims. We expect 3 to be evicted next.
@@ -87,25 +72,16 @@ TEST(LRUKReplacerTest, ENABLED_SampleTest) {
   ASSERT_EQ(3, lru_replacer.Size());
 
   // Now we have [1,5,4]. Continue looking for victims.
-  // std::cout << lru_replacer.is_evictable_[1] << std::endl;
   lru_replacer.SetEvictable(1, false);
-  // std::cout << lru_replacer.is_evictable_[1] << std::endl;
   ASSERT_EQ(2, lru_replacer.Size());
   ASSERT_EQ(true, lru_replacer.Evict(&value));
   ASSERT_EQ(5, value);
   ASSERT_EQ(1, lru_replacer.Size());
 
-  // for(auto &j:lru_replacer.node_evict_ ){
-  //   std::cout<<j.fid_<<std::endl;
-  // }
-
   // Update access history for 1. Now we have [4,1]. Next victim is 4.
   lru_replacer.RecordAccess(1);
   lru_replacer.RecordAccess(1);
   lru_replacer.SetEvictable(1, true);
-  // for(auto &j:lru_replacer.node_evict_ ){
-  //   std::cout<<j.fid_<<std::endl;
-  // }
   ASSERT_EQ(2, lru_replacer.Size());
   ASSERT_EQ(true, lru_replacer.Evict(&value));
   ASSERT_EQ(value, 4);
@@ -118,120 +94,5 @@ TEST(LRUKReplacerTest, ENABLED_SampleTest) {
   // This operation should not modify size
   ASSERT_EQ(false, lru_replacer.Evict(&value));
   ASSERT_EQ(0, lru_replacer.Size());
-}
-
-TEST(LRUKReplacerTest1, ENABLED_SampleTest) {
-  LRUKReplacer lru_replacer(20, 3);
-
-  for (int i = 1; i <= 10; i++) {
-    lru_replacer.SetEvictable(i, true);
-  }
-  for (int i = 11; i <= 20; i++) {
-    lru_replacer.SetEvictable(i, false);
-  }
-  lru_replacer.RecordAccess(1);
-  lru_replacer.RecordAccess(5);
-  lru_replacer.RecordAccess(4);
-  lru_replacer.RecordAccess(5);
-  lru_replacer.RecordAccess(8);
-  lru_replacer.RecordAccess(10);
-  lru_replacer.RecordAccess(1);
-  lru_replacer.RecordAccess(3);
-  lru_replacer.RecordAccess(4);
-  lru_replacer.RecordAccess(5);
-  lru_replacer.RecordAccess(6);
-  lru_replacer.RecordAccess(11);
-  lru_replacer.RecordAccess(14);
-  lru_replacer.RecordAccess(13);
-  lru_replacer.RecordAccess(16);
-  lru_replacer.RecordAccess(11);
-  lru_replacer.RecordAccess(13);
-  lru_replacer.RecordAccess(13);
-  lru_replacer.RecordAccess(13);
-  lru_replacer.RecordAccess(14);
-  lru_replacer.RecordAccess(14);
-  lru_replacer.RecordAccess(11);
-  lru_replacer.RecordAccess(15);
-  lru_replacer.RecordAccess(18);
-
-  for (auto &i : lru_replacer.node_evict_) {
-    std::cout << "fid: " << i.fid_ << std::endl;
-    for (auto &j : i.GetHistory()) {
-      std::cout << j << " ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << 1 << std::endl;
-  for (auto &j : lru_replacer.node_store_[1]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  // auto it = lru_replacer.node_evict_.find(*(lru_replacer.node_store_[1]));
-  // if(it == lru_replacer.node_evict_.end()){
-  //   std::cout<<"不好了"<<std::endl;
-  // }else{
-  //   std::cout<<"这是1的"<<std::endl;
-  //   for(auto &j: it->GetHistory()){
-  //     std::cout<<j<<std::endl;
-  //   }
-  //   std::cout<<"这是1的"<<std::endl;
-  // }
-  std::cout << 3 << std::endl;
-  for (auto &j : lru_replacer.node_store_[3]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  std::cout << 4 << std::endl;
-  for (auto &j : lru_replacer.node_store_[4]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  std::cout << 5 << std::endl;
-  for (auto &j : lru_replacer.node_store_[5]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  std::cout << 6 << std::endl;
-  for (auto &j : lru_replacer.node_store_[6]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  std::cout << 8 << std::endl;
-  for (auto &j : lru_replacer.node_store_[8]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  std::cout << 10 << std::endl;
-  for (auto &j : lru_replacer.node_store_[10]->GetHistory()) {
-    std::cout << j << std::endl;
-  }
-  int value;
-  // std::cout<<"fid:"<<std::endl;
-  // for(auto &j:lru_replacer.node_evict_){
-  //   std::cout<<j.fid_<<" ";
-  // }
-  // std::cout<<std::endl;
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
-  // std::cout<<"fid:"<<std::endl;
-  // for(auto &j:lru_replacer.node_evict_){
-  //   std::cout<<j.fid_<<" ";
-  // }
-  // std::cout<<std::endl;
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
-  for (int i = 5; i <= 10; i++) {
-    lru_replacer.SetEvictable(i, false);
-  }
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
-  lru_replacer.RecordAccess(5);
-  lru_replacer.RecordAccess(6);
-  lru_replacer.RecordAccess(11);
-  lru_replacer.RecordAccess(14);
-  lru_replacer.RecordAccess(13);
-  lru_replacer.RecordAccess(16);
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
-  lru_replacer.Evict(&value);
-  std::cout << value << std::endl;
 }
 }  // namespace bustub
