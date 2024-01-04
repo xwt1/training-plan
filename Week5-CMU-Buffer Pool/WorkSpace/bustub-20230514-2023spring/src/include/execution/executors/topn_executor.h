@@ -13,16 +13,69 @@
 #pragma once
 
 #include <memory>
+#include <queue>
 #include <utility>
 #include <vector>
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
+#include "execution/executors/hash_join_executor.h"
 #include "execution/plans/seq_scan_plan.h"
 #include "execution/plans/topn_plan.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
+
+class TopNNode {
+ public:
+  friend class TopNExecutor;
+  TopNNode() = default;
+  TopNNode(Tuple tuple, const Schema *const sc,
+           const std::vector<std::pair<OrderByType, AbstractExpressionRef>> &order_bys)
+      : tuple_(std::move(tuple)) {
+    for (const auto &order_by_item : order_bys) {
+      Value v = order_by_item.second->Evaluate(&this->tuple_, *sc);
+      this->vec_.emplace_back(order_by_item.first, v);
+    }
+  }
+  auto operator<(const TopNNode &A) const -> bool {
+    // 重载小于号,构建大根堆
+    BUSTUB_ASSERT(A.vec_.size() == this->vec_.size(), "两个node类型不一样,无法比较");
+    decltype(this->vec_.size()) siz = this->vec_.size();
+    for (decltype(this->vec_.size()) i = 0; i < siz; i++) {
+      BUSTUB_ASSERT(A.vec_[i].first == this->vec_[i].first, "两个node的OrderByType不一样,无法比较");
+      switch (this->vec_[i].first) {
+        case OrderByType::DEFAULT:
+        case OrderByType::ASC: {
+          if (this->vec_[i].second.CompareLessThan(A.vec_[i].second) == CmpBool::CmpTrue) {
+            return true;
+          }
+          if (this->vec_[i].second.CompareGreaterThan(A.vec_[i].second) == CmpBool::CmpTrue) {
+            return false;
+          }
+          break;
+        }
+        case OrderByType::DESC: {
+          if (this->vec_[i].second.CompareLessThan(A.vec_[i].second) == CmpBool::CmpTrue) {
+            return false;
+          }
+          if (this->vec_[i].second.CompareGreaterThan(A.vec_[i].second) == CmpBool::CmpTrue) {
+            return true;
+          }
+          break;
+        }
+        default: {
+          BUSTUB_ASSERT(true, "OrderByType::INVALID happened!!");
+        }
+      }
+    }
+    return false;
+  }
+
+ private:
+  Tuple tuple_;
+  std::vector<std::pair<bustub::OrderByType, bustub::Value>> vec_;
+};
 
 /**
  * The TopNExecutor executor executes a topn.
@@ -63,5 +116,8 @@ class TopNExecutor : public AbstractExecutor {
   const TopNPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
+  // HashJoinExecutor::HashJoinTableIterator it1_;
+  std::priority_queue<TopNNode> topn_tuple_;
+  std::vector<TopNNode> res_;
 };
 }  // namespace bustub

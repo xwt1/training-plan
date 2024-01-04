@@ -75,32 +75,32 @@ class SimpleAggregationHashTable {
   void CombineAggregateValues(AggregateValue *result, const AggregateValue &input) {
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
-        case AggregationType::CountStarAggregate:{
+        case AggregationType::CountStarAggregate: {
           // if(input.aggregates_[i].CompareEquals(bustub::Value(INTEGER,0)) == CmpBool::CmpFalse){
-            result->aggregates_[i] = result->aggregates_[i].Add(bustub::Value(INTEGER,1));
+          result->aggregates_[i] = result->aggregates_[i].Add(bustub::Value(INTEGER, 1));
           // }
           break;
         }
-        case AggregationType::CountAggregate:{
-          if(!input.aggregates_[i].IsNull()){
-            if(result->aggregates_[i].IsNull()){
-              result->aggregates_[i] = bustub::Value(INTEGER,0);
+        case AggregationType::CountAggregate: {
+          if (!input.aggregates_[i].IsNull()) {
+            if (result->aggregates_[i].IsNull()) {
+              result->aggregates_[i] = bustub::Value(INTEGER, 0);
             }
-            result->aggregates_[i] = result->aggregates_[i].Add(bustub::Value(INTEGER,1));
+            result->aggregates_[i] = result->aggregates_[i].Add(bustub::Value(INTEGER, 1));
           }
           break;
         }
-        case AggregationType::SumAggregate:{
-          if(!input.aggregates_[i].IsNull()){
-            if(!result->aggregates_[i].IsNull()){
+        case AggregationType::SumAggregate: {
+          if (!input.aggregates_[i].IsNull()) {
+            if (!result->aggregates_[i].IsNull()) {
               result->aggregates_[i] = result->aggregates_[i].Add(input.aggregates_[i]);
-            }else{
+            } else {
               result->aggregates_[i] = input.aggregates_[i];
             }
           }
           break;
         }
-        case AggregationType::MinAggregate:{
+        case AggregationType::MinAggregate: {
           if (!input.aggregates_[i].IsNull()) {
             if (result->aggregates_[i].IsNull()) {
               result->aggregates_[i] = input.aggregates_[i];
@@ -110,7 +110,7 @@ class SimpleAggregationHashTable {
           }
           break;
         }
-        case AggregationType::MaxAggregate:{
+        case AggregationType::MaxAggregate: {
           if (!input.aggregates_[i].IsNull()) {
             if (result->aggregates_[i].IsNull()) {
               result->aggregates_[i] = input.aggregates_[i];
@@ -141,8 +141,7 @@ class SimpleAggregationHashTable {
    */
   void Clear() { ht_.clear(); }
 
-
-  auto IsEmpty() ->bool { return ht_.empty(); }
+  auto IsEmpty() -> bool { return ht_.empty(); }
 
   /** An iterator over the aggregation hash table */
   class Iterator {

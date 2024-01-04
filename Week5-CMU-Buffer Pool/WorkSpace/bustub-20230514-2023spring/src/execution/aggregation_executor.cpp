@@ -19,13 +19,13 @@ namespace bustub {
 AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
                                          std::unique_ptr<AbstractExecutor> &&child)
     : AbstractExecutor(exec_ctx),
-        plan_(plan),
-        child_(std::move(child)),
-        aht_(SimpleAggregationHashTable(this->plan_->GetAggregates(),this->plan_->GetAggregateTypes())),
-        aht_iterator_(aht_.Begin()){
-        // this->child_ = std::move(child);
-        // this->aht_ = std::move(SimpleAggregationHashTable(this->plan_->GetAggregates(),this->plan_->GetAggregateTypes()));
-    }
+      plan_(plan),
+      child_(std::move(child)),
+      aht_(SimpleAggregationHashTable(this->plan_->GetAggregates(), this->plan_->GetAggregateTypes())),
+      aht_iterator_(aht_.Begin()) {
+  // this->child_ = std::move(child);
+  // this->aht_ = std::move(SimpleAggregationHashTable(this->plan_->GetAggregates(),this->plan_->GetAggregateTypes()));
+}
 
 void AggregationExecutor::Init() {
   child_->Init();
@@ -33,20 +33,20 @@ void AggregationExecutor::Init() {
   RID rid{};
   aht_.Clear();
   while (child_->Next(&tuple, &rid)) {
-      aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple));
+    aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple));
   }
   aht_iterator_ = aht_.Begin();
   this->has_out_ = false;
 }
 
 auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
-  if(aht_.IsEmpty()){
+  if (aht_.IsEmpty()) {
     // std::cout<<"哈希表为空"<<std::endl;
     // 假如这时候发现表为空,则要讨论是否有group by clause(子句)
-    if(plan_->GetGroupBys().empty()){
+    if (plan_->GetGroupBys().empty()) {
       // std::cout<<"group by为空"<<std::endl;
       // 如果没有group by clause(子句),则需要查看是否特殊输出过一个tuple,如果没有则输出
-      if(!has_out_){
+      if (!has_out_) {
         std::vector<Value> values;
         auto aggregate_types = plan_->GetAggregateTypes();
         for (size_t i = 0; i < plan_->GetAggregates().size(); i++) {

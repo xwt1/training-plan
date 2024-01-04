@@ -10,7 +10,9 @@
 #include "catalog/catalog.h"
 #include "concurrency/transaction.h"
 #include "execution/expressions/abstract_expression.h"
+#include "execution/expressions/comparison_expression.h"
 #include "execution/plans/abstract_plan.h"
+#include "execution/plans/hash_join_plan.h"
 
 namespace bustub {
 
@@ -40,6 +42,20 @@ class Optimizer {
    * can merge the filter condition into nested loop join to achieve better efficiency.
    */
   auto OptimizeMergeFilterNLJ(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
+
+  /**
+   * 处理子节点
+   */
+  auto DealWithChildren(const std::shared_ptr<HashJoinPlanNode> &node) -> AbstractPlanNodeRef;
+
+  /**
+   * 将一个等值表达式的等号两边的表达式拆分放入left_exprs和right_exprs
+   * 首先判断第一个参数是否是比较表达式，再判断是否为等值表达式
+   * 接着保证等号两边的表达式都是column_value_expression表达式
+   * 如果条件都满足返回true,不满足返回false
+   */
+  auto SplitEquExpr(const bustub::AbstractExpression *expr, std::vector<AbstractExpressionRef> &left_exprs,
+                    std::vector<AbstractExpressionRef> &right_exprs) -> bool;
 
   /**
    * @brief optimize nested loop join into hash join.

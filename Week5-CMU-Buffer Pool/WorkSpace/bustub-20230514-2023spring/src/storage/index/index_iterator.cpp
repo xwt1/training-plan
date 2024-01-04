@@ -33,7 +33,7 @@ INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, ReadPageGuard &&page_g
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::operator=(IndexIterator &&that) noexcept -> IndexIterator &{
+auto INDEXITERATOR_TYPE::operator=(IndexIterator &&that) noexcept -> IndexIterator & {
   this->bpm_ = that.bpm_;
   that.bpm_ = nullptr;
   this->page_guard_ = std::move(that.page_guard_);

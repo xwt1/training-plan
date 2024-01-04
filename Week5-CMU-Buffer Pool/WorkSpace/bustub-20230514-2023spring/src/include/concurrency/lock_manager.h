@@ -15,8 +15,11 @@
 #include <algorithm>
 #include <condition_variable>  // NOLINT
 #include <list>
+#include <map>
 #include <memory>
 #include <mutex>  // NOLINT
+#include <set>
+#include <stack>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -65,7 +68,7 @@ class LockManager {
   class LockRequestQueue {
    public:
     /** List of lock requests for the same resource (table or row) */
-    std::list<LockRequest *> request_queue_;
+    std::list<std::shared_ptr<LockRequest>> request_queue_;
     /** For notifying blocked transactions on this rid */
     std::condition_variable cv_;
     /** txn_id of an upgrading transaction (if any) */
@@ -312,16 +315,147 @@ class LockManager {
  private:
   /** Spring 2023 */
   /* You are allowed to modify all functions below. */
-  auto UpgradeLockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool;
-  auto UpgradeLockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool;
+
+  /**
+   * table:
+   */
+  /** 检查事务的隔离级别*/
+  void TransactionIsolationLevelCheck(Transaction *txn, LockMode mode);
+
+  /** 查看此事务之前是否已经有过table的锁*/
+  auto IsTxnHasOidLock(Transaction *txn, LockMode &mode, table_oid_t oid) -> bool;
+
+  void CheckItCanUpgradeOrNot(Transaction *txn, LockMode has_mode, LockMode upgrade_mode);
+
+  /** 从lock_queue中获取锁*/
+  void GetLockStatesFromQueue(std::unordered_set<LockMode> &lock_modes, std::shared_ptr<LockRequestQueue> &queue_ptr,
+                              bool mode, txn_id_t txn_id);
+
+  /** 插入一个空的锁请求队列*/
+  void CreateNewQueueForTableLockMap(Transaction *txn, table_oid_t table_id, LockMode lock_mode);
+
+  /** 删除指定的锁从对应txn的锁类型unordered_set中*/
+  void DeleteLockRecordFromTransaction(Transaction *txn, table_oid_t table_id, LockMode lock_mode);
+
+  /** 插入一个可以授予的锁进入对应txn的锁类型unordered_set中*/
+  void InsertGrantedLockIntoTxnUnorderedSet(Transaction *txn, table_oid_t table_id, LockMode lock_mode);
+
+  /** 尝试升级将锁从origin_mode升级到upgraded_mode*/
+  auto UpgradeLockTable(Transaction *txn, LockMode origin_mode, LockMode upgraded_mode,
+                        std::shared_ptr<LockRequest> &new_request, const table_oid_t &oid) -> int;
+
+  /** 获取所有已经granted的锁类型*/
+  void ObtainedAllGrantedLockMode(std::unordered_map<LockMode, bool> &granted_lock_mode,
+                                  const std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
+  /** 检查已拥有的锁是否与某请求所需要的锁兼容*/
+  auto IsLockCompatible(LockMode hold_mode, LockMode apply_mode) -> bool;
+
+  /** 进行相容性检查*/
+  auto IsRequestLockCompatibleWithExistedLockMode(const std::unordered_map<LockMode, bool> &granted_lock_mode,
+                                                  LockMode checkmode) -> bool;
+
+  /** debug queue中txn事务的LockRequest请求的granted是否为true,如果不是说明有问题*/
+  void DebugIsTxnLockRequestGrantedTrue(Transaction *txn, const std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
+  /** 将Txn已拥有的锁释放掉*/
+  void DeleteTxnHoldLockFromQueue(Transaction *txn, std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
+  /** 将新的事务请求的锁插入进请求队列,根据是否升级插入到队列最前面或者最后面*/
+  void InsertNewTxnRequestLockIntoQueue(Transaction *txn, LockMode insert_lock_mode, table_oid_t table_id,
+                                        std::shared_ptr<LockRequestQueue> &lock_request_queue,
+                                        std::shared_ptr<LockRequest> &new_request, bool insert_front);
+
+  /** 将自身阻塞住,等待notify可以授予*/
+  // auto BlockedUtilRequestGranted(Transaction *txn, std::unique_lock<std::mutex> &unique_lock,
+  //                                           std::condition_variable &condition, LockRequest * request,
+  //                                           std::shared_ptr<LockRequestQueue> &queue_ptr) -> bool;
+
+  auto BlockedUtilRequestGranted(Transaction *txn, std::unique_lock<std::mutex> &unique_lock,
+                                 std::condition_variable &condition, std::shared_ptr<LockRequest> &request,
+                                 std::shared_ptr<LockRequestQueue> &queue_ptr) -> bool;
+
+  /** 查看是不是所有在队列中的请求除了最后一个都已经被授予了*/
+  auto IsAllRequestGrantedInQueueExceptLast(std::shared_ptr<LockRequestQueue> &queue_ptr) -> bool;
+
+  /** 获取除了队列最后一个元素外的所有已经granted的锁类型*/
+  void ObtainedAllGrantedLockModeExceptLast(std::unordered_map<LockMode, bool> &granted_lock_mode,
+                                            const std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
+  /** 检查在释放表锁时,是不是还有某个行的锁还没有释放*/
+  void CheckIfTxnHoldRowLock(Transaction *txn, table_oid_t oid);
+
+  /** 检查在事务是否持有当前Table的锁*/
+  auto CheckIfTxnHoldTableLock(Transaction *txn, table_oid_t oid, LockMode &hold_lock) -> bool;
+
+  /** 删除对应Table队列中请求*/
+  void DeleteTxnLockFromTableQueue(Transaction *txn, std::shared_ptr<LockRequestQueue> &queue_ptr);
+
+  /** unlock时更新事务的状态*/
+  void UpdateTxnStateWhenUnlock(Transaction *txn, const LockMode &hold_lock);
+
+  /** 检查是否加了意向锁在row上*/
+  void CheckIntentionLockOnRow(Transaction *txn, LockMode mode);
+
+  /** 检查在给行加锁的时候给对应的表加的锁是否正确*/
+  void CheckIfWhenLockRowTheTableLockIsRight(Transaction *txn, LockMode mode, table_oid_t oid);
+
+  /** 查看此事务之前是否已经有过某个table的row的锁*/
+  auto IsTxnHasRidLock(Transaction *txn, LockMode &mode, table_oid_t oid, RID rid) -> bool;
+
+  /** 尝试升级行锁*/
+  auto UpgradeLockRow(Transaction *txn, LockMode origin_mode, LockMode upgraded_mode, const table_oid_t &oid,
+                      const RID &rid, std::shared_ptr<LockRequest> &new_request) -> int;
+
+  /** 重载,尝试产生一个新的行锁请求,并插入到对应队列中*/
+  void InsertNewTxnRequestLockIntoQueue(Transaction *txn, LockMode insert_lock_mode, const table_oid_t &oid,
+                                        const RID &rid, std::shared_ptr<LockRequestQueue> &lock_request_queue,
+                                        std::shared_ptr<LockRequest> &new_request, bool insert_front);
+
+  /** 重载,尝试从事务的row_set中删除对应rid的请求*/
+  void DeleteLockRecordFromTransaction(Transaction *txn, const table_oid_t &oid, const RID &rid, LockMode lock_mode);
+
+  /** 重载,尝试插入新的请求进入row_set*/
+  void InsertGrantedLockIntoTxnUnorderedSet(Transaction *txn, const table_oid_t &oid, const RID &rid,
+                                            LockMode lock_mode);
+
+  /** 创建一个新的请求队列*/
+  void CreateNewQueueForRowLockMap(Transaction *txn, const table_oid_t &oid, const RID &rid, LockMode lock_mode);
+
+  /** 检查事务是否拿着一个行的锁*/
+  auto CheckIfTxnHoldRowLock(Transaction *txn, const table_oid_t &oid, const RID &rid, LockMode &hold_lock) -> bool;
+
   auto AreLocksCompatible(LockMode l1, LockMode l2) -> bool;
   auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode) -> bool;
-  void GrantNewLocksIfPossible(LockRequestQueue *lock_request_queue);
+
+  /** 尝试将队列中能够授予的锁都授予出去*/
+  void GrantNewLocksIfPossible(std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
+  /** 跳过第一个的ObtainedAllGrantedLockModeExceptFirst*/
+  void ObtainedAllGrantedLockModeExceptFirst(std::unordered_map<LockMode, bool> &granted_lock_mode,
+                                             const std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
+  /** 获取请求队列中某一个事务对某一个table或row的旧的请求*/
+  // void GetOldRequestFromQueue(Transaction *txn,std::shared_ptr<LockRequest>&
+  // old_lock_request,std::shared_ptr<LockRequestQueue> &lock_request_queue); void
+  // GetOldRequestFromQueue(std::shared_ptr<LockRequest>& old_lock_request, const table_oid_t& oid,const RID& rid
+  // ,std::shared_ptr<LockRequestQueue> &lock_request_queue);
+
   auto CanLockUpgrade(LockMode curr_lock_mode, LockMode requested_lock_mode) -> bool;
   auto CheckAppropriateLockOnTable(Transaction *txn, const table_oid_t &oid, LockMode row_lock_mode) -> bool;
   auto FindCycle(txn_id_t source_txn, std::vector<txn_id_t> &path, std::unordered_set<txn_id_t> &on_path,
                  std::unordered_set<txn_id_t> &visited, txn_id_t *abort_txn_id) -> bool;
   void UnlockAll();
+  /** 从小到大获取所有当前的结点集合*/
+  // void ObtainAllTxnID(std::vector<txn_id_t> &vertex_vec);
+
+  auto Dfs(txn_id_t now, txn_id_t *lowest_txn_id) -> bool;
+
+  /** 构建图*/
+  void BuildGraph();
+
+  /** 移除被放弃的进程*/
+  void RemoveAbortedTxn(txn_id_t aborted_id);
 
   /** Structure that holds lock requests for a given table oid */
   std::unordered_map<table_oid_t, std::shared_ptr<LockRequestQueue>> table_lock_map_;
@@ -336,8 +470,14 @@ class LockManager {
   std::atomic<bool> enable_cycle_detection_;
   std::thread *cycle_detection_thread_;
   /** Waits-for graph representation. */
-  std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
+  std::map<txn_id_t, std::set<txn_id_t>> waits_for_;
   std::mutex waits_for_latch_;
+
+  // 存在的顶点集合
+  std::unordered_map<txn_id_t, bool> now_is_visited_;
+  std::unordered_map<txn_id_t, bool> is_in_stack_;
+  // 用vector模拟栈
+  std::vector<txn_id_t> now_stack_;
 };
 
 }  // namespace bustub

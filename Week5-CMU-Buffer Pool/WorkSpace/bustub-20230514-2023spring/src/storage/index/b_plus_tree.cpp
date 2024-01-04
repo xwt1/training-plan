@@ -152,7 +152,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
       auto now_leaf_page_array = now_leaf_page->GetArray();
       auto lower = std::lower_bound(now_leaf_page_array, now_leaf_page_array + now_leaf_page->GetSize(),
                                     std::make_pair(key, value), cmp_func);
-      if(lower - now_leaf_page_array < now_leaf_page->GetSize()){
+      if (lower - now_leaf_page_array < now_leaf_page->GetSize()) {
         // 保证找到的位置是有效的
         if (this->comparator_(lower->first, key) == 0) {
           // 说明有重复的键值,返回false;
