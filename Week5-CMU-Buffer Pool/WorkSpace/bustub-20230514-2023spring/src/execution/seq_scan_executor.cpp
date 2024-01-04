@@ -28,8 +28,8 @@ SeqScanExecutor::~SeqScanExecutor() {
 }
 
 void SeqScanExecutor::Init() {
+  // if()
 
-  
   auto cata_log = exec_ctx_->GetCatalog();
   auto table_info = cata_log->GetTable(plan_->GetTableOid());
   auto get_table = table_info->table_.get();
