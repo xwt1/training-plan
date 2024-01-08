@@ -520,7 +520,7 @@ void LockManager::ObtainedAllGrantedLockModeExceptFirst(std::unordered_map<LockM
 
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
   std::cout << "txn号为:" << txn->GetTransactionId() << std::endl;
-  std::cout << "正尝试拿到" << oid << "的";
+  std::cout << "正尝试拿到TABLE" << oid << "的";
   switch (lock_mode) {
     case LockMode::SHARED:
       std::cout << "SHARED";
@@ -558,6 +558,7 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
       // 首先判断origin_mode和lock_mode是不是相同的
       if (origin_mode == lock_mode) {
         // 说明不需要升级,也不需要再做可能的授予锁操作,直接返回true
+        this->table_lock_map_latch_.unlock();
         return true;
       }
       // 尝试进行upgrade流程
@@ -756,7 +757,7 @@ void LockManager::UpdateTxnStateWhenUnlock(Transaction *txn, const LockMode &hol
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
   std::cout << "txn号为:" << txn->GetTransactionId() << std::endl;
-  std::cout << "正尝试给" << oid;
+  std::cout << "正尝试给table" << oid;
   std::cout << "解锁" << std::endl;
 
   // 1.首先检查在释放时是不是还拿着某个行的锁
@@ -770,17 +771,21 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   }
+  std::cout << "怎么回事2?" << std::endl;
   this->table_lock_map_latch_.lock();
+  std::cout << "怎么回事3?" << std::endl;
   if (table_lock_map_.find(oid) == table_lock_map_.end()) {
+    // std::cout<<"怎么回事4?"<<std::endl;
     table_lock_map_latch_.unlock();
     // std::cout<<"走到这一步123"<<std::endl;
     return false;
   }
+  std::cout << "怎么回事" << std::endl;
   auto queue_ptr = table_lock_map_[oid];
   std::unique_lock<std::mutex> unique_queue_ptr_latch{queue_ptr->latch_};
   std::cout << "解锁走到了这一步" << std::endl;
   this->table_lock_map_latch_.unlock();
-
+  std::cout << "解锁走到了这一步2" << std::endl;
   // 3.能走到这一步,说明需要从请求队列中清除出该请求
   this->DeleteTxnLockFromTableQueue(txn, queue_ptr);
   // 4.根据事务的隔离级别更新事务的状态,不符合要求则抛出异常
@@ -967,6 +972,22 @@ void LockManager::CreateNewQueueForRowLockMap(Transaction *txn, const table_oid_
 }
 
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
+  std::cout << "txn号为:" << txn->GetTransactionId() << std::endl;
+  std::cout << "正尝试拿到ROW" << rid.GetSlotNum() << "的";
+  switch (lock_mode) {
+    case LockMode::SHARED:
+      std::cout << "SHARED";
+      break;
+    case LockMode::EXCLUSIVE:
+      std::cout << "EXCLUSIVE";
+      break;
+    case LockMode::INTENTION_SHARED:
+    case LockMode::INTENTION_EXCLUSIVE:
+    case LockMode::SHARED_INTENTION_EXCLUSIVE:
+      break;
+  }
+  std::cout << "锁" << std::endl;
+
   if (txn == nullptr) {
     return false;
   }
@@ -988,6 +1009,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
       // 2.1说明这时候txn有一个origin_mode的锁
       // 首先判断origin_mode和lock_mode是不是相同的
       if (origin_mode == lock_mode) {
+        this->row_lock_map_latch_.unlock();
         // 说明不需要升级,也不需要再做可能的授予锁操作,直接返回true
         return true;
       }
@@ -1101,10 +1123,14 @@ auto LockManager::CheckIfTxnHoldRowLock(Transaction *txn, const table_oid_t &oid
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
+  std::cout << "txn号为:" << txn->GetTransactionId() << std::endl;
+  std::cout << "正尝试给row" << rid.GetSlotNum();
+  std::cout << "解锁" << std::endl;
   LockMode hold_mode;
   if (!this->CheckIfTxnHoldRowLock(txn, oid, rid, hold_mode)) {
     // 2.如果没有持有请求解锁的锁,就需要抛出ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD异常
     // 记得解锁
+    std::cout << "卧槽,怎么没有拿row的锁" << std::endl;
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   }
@@ -1119,13 +1145,14 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
 
   // 3.能走到这一步,说明需要从请求队列中清除出该请求
   this->DeleteTxnLockFromTableQueue(txn, queue_ptr);
-  // 4.根据事务的隔离级别更新事务的状态,不符合要求则抛出异常
-  this->UpdateTxnStateWhenUnlock(txn, hold_mode);
-  // 5.更新txn的set,删除set对应的table的锁
+
+  // this->UpdateTxnStateWhenUnlock(txn, hold_mode);
+  // 4.更新txn的set,删除set对应的table的锁
   this->DeleteLockRecordFromTransaction(txn, oid, rid, hold_mode);
-  // 6.给予所有可以给予的锁
+  // 5.给予所有可以给予的锁
   this->GrantNewLocksIfPossible(queue_ptr);
 
+  // 6.根据事务的隔离级别更新事务的状态,不符合要求则抛出异常
   if (!force) {
     // 如果没有force，要强制改变事务的状态
     UpdateTxnStateWhenUnlock(txn, hold_mode);

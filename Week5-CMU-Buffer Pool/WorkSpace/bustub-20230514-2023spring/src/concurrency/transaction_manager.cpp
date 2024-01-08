@@ -31,6 +31,13 @@ void TransactionManager::Commit(Transaction *txn) {
 
 void TransactionManager::Abort(Transaction *txn) {
   /* TODO: revert all the changes in write set */
+  while (!txn->GetWriteSet()->empty()) {
+    auto table_write_record = txn->GetWriteSet()->back();
+    auto tuple_meta = table_write_record.table_heap_->GetTupleMeta(table_write_record.rid_);
+    tuple_meta.is_deleted_ = !tuple_meta.is_deleted_;
+    table_write_record.table_heap_->UpdateTupleMeta(tuple_meta, table_write_record.rid_);
+    txn->GetWriteSet()->pop_back();
+  }
 
   ReleaseLocks(txn);
 

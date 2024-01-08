@@ -14,12 +14,15 @@
 
 #include <vector>
 
+#include "concurrency/lock_manager.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/seq_scan_plan.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
+
+class LockManager;
 
 /**
  * The SeqScanExecutor executor executes a sequential table scan.
@@ -48,6 +51,12 @@ class SeqScanExecutor : public AbstractExecutor {
 
   /** @return The output schema for the sequential scan */
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); }
+
+  void AcquireTableLock(const LockManager::LockMode &request_lock_mode, const table_oid_t &oid);
+  void ReleaseTableLock(const table_oid_t &oid);
+
+  void AcquireRowLock(const LockManager::LockMode &request_lock_mode, const table_oid_t &oid, const RID &rid);
+  void ReleaseRowLock(const table_oid_t &oid, const RID &rid, bool force);
 
  private:
   /** The sequential scan plan node to be executed */

@@ -45,6 +45,10 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     delete_meta.is_deleted_ = true;
     table_info_->table_->UpdateTupleMeta(delete_meta, temp_rid);  // 修改table的meta
 
+    auto table_write_record = TableWriteRecord{table_info_->oid_, temp_rid, table_info_->table_.get()};
+    table_write_record.wtype_ = WType::DELETE;
+    exec_ctx_->GetTransaction()->GetWriteSet()->push_back(table_write_record);
+
     // 4.更新索引
     for (auto &index_info : this->index_info_) {
       // 这里理论上应该只能获取到B_PLUS_TREE的index,其他都没有实现

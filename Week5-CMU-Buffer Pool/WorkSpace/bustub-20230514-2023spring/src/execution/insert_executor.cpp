@@ -25,6 +25,15 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
 void InsertExecutor::Init() {
   auto catalog = exec_ctx_->GetCatalog();
   auto table_oid = plan_->TableOid();
+  try {
+    bool success = exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(),
+                                                          LockManager::LockMode::INTENTION_EXCLUSIVE, table_oid);
+    if (!success) {
+      throw ExecutionException("insert_executor acquire Table IX Lock Fail");
+    }
+  } catch (TransactionAbortException &e) {
+    throw ExecutionException(e.GetInfo());
+  }
   this->table_info_ = catalog->GetTable(table_oid);
   auto table_name = this->table_info_->name_;
   this->index_info_ = catalog->GetTableIndexes(table_name);
@@ -41,9 +50,16 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     // 插入一个Tuple,首先准备一个空的元数据
     TupleMeta tuple_meta = {INVALID_TXN_ID, INVALID_TXN_ID, false};
     // 插入tuple
-    auto insert_rid = table_info_->table_->InsertTuple(tuple_meta, temp_tuple);
+    auto insert_rid = table_info_->table_->InsertTuple(tuple_meta, temp_tuple, exec_ctx_->GetLockManager(),
+                                                       exec_ctx_->GetTransaction(), table_info_->oid_);
     if (insert_rid != std::nullopt) {
       ++sum;
+
+      *rid = insert_rid.value();
+      auto table_write_record = TableWriteRecord{table_info_->oid_, *rid, table_info_->table_.get()};
+      table_write_record.wtype_ = WType::INSERT;
+      exec_ctx_->GetTransaction()->GetWriteSet()->push_back(table_write_record);
+
       for (auto &index_info : this->index_info_) {
         // std::cout<<"索引名: "<<index_info->name_<<std::endl;
         auto insert_tuple = this->table_info_->table_->GetTuple(*insert_rid).second;
@@ -58,7 +74,6 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
         // Value v1 = tuple_key.GetValue(index->GetKeySchema(),0);
         // std::cout<<"本次插入的tuple的key值为: "<<v1.ToString()<<std::endl;
         index_info->index_->InsertEntry(tuple_key, *insert_rid, exec_ctx_->GetTransaction());
-        // std::cout<<is_succ<<std::endl;
       }
     } else {
       std::cout << "过于巨大,可能出错了" << std::endl;
